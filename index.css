@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #e0f2fe 0%, #f3e8ff 35%, #fce7f3 70%, #dcfce7 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+}
+h1, h2, h3, h4, .brand-font {
+    font-family: 'Quicksand', sans-serif;
+}
+.glass-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+}
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
