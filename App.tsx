@@ -1,0 +1,989 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  LayoutDashboard, 
+  Database, 
+  PlusCircle, 
+  FileText, 
+  LogOut, 
+  ShieldAlert, 
+  Activity, 
+  CheckCircle2, 
+  Clock,
+  Trash2,
+  Edit,
+  Download,
+  Upload,
+  Search,
+  BrainCircuit,
+  Loader2,
+  X,
+  Calendar,
+  ChevronDown
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
+import { dbService } from './db';
+import { analyzeCase } from './services/geminiService';
+import { 
+  Page, 
+  CaseRecord, 
+  CaseStatus, 
+  Student, 
+  Teacher, 
+  DatabaseState, 
+  Attachment 
+} from './types';
+
+// Components
+const Navbar: React.FC<{ 
+  currentPage: Page, 
+  onPageChange: (p: Page) => void, 
+  onLogout: () => void 
+}> = ({ currentPage, onPageChange, onLogout }) => (
+  <nav className="sticky top-0 z-50 bg-white/60 backdrop-blur-xl border-b border-white/40 px-6 py-4 flex justify-between items-center">
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-200">
+        BK
+      </div>
+      <h1 className="font-bold text-lg text-indigo-900 leading-none uppercase hidden md:block">BK Peduli Siswa</h1>
+    </div>
+    <div className="flex gap-2 md:gap-4 text-xs md:text-sm font-semibold overflow-x-auto">
+      <button 
+        onClick={() => onPageChange('dashboard')} 
+        className={`px-3 py-2 rounded-xl transition flex items-center gap-2 ${currentPage === 'dashboard' ? 'bg-white shadow-sm text-indigo-600' : 'hover:bg-white/50 text-slate-600'}`}
+      >
+        <LayoutDashboard size={18} /> <span className="hidden sm:inline">Beranda</span>
+      </button>
+      <button 
+        onClick={() => onPageChange('master')} 
+        className={`px-3 py-2 rounded-xl transition flex items-center gap-2 ${currentPage === 'master' ? 'bg-white shadow-sm text-indigo-600' : 'hover:bg-white/50 text-slate-600'}`}
+      >
+        <Database size={18} /> <span className="hidden sm:inline">Master</span>
+      </button>
+      <button 
+        onClick={() => onPageChange('input')} 
+        className={`px-4 py-2 rounded-xl transition flex items-center gap-2 whitespace-nowrap ${currentPage === 'input' ? 'bg-indigo-700 text-white shadow-indigo-200' : 'bg-indigo-600 text-white shadow-indigo-100 hover:bg-indigo-700'} shadow-lg`}
+      >
+        <PlusCircle size={18} /> <span>Input Kasus</span>
+      </button>
+      <button 
+        onClick={() => onPageChange('laporan')} 
+        className={`px-3 py-2 rounded-xl transition flex items-center gap-2 ${currentPage === 'laporan' ? 'bg-white shadow-sm text-indigo-600' : 'hover:bg-white/50 text-slate-600'}`}
+      >
+        <FileText size={18} /> <span className="hidden sm:inline">Laporan</span>
+      </button>
+      <button 
+        onClick={onLogout} 
+        className="px-3 py-2 rounded-xl text-red-500 hover:bg-red-50 transition flex items-center gap-2"
+      >
+        <LogOut size={18} /> <span className="hidden sm:inline">Keluar</span>
+      </button>
+    </div>
+  </nav>
+);
+
+const App: React.FC = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [dbState, setDbState] = useState<DatabaseState>({ siswa: [], wali_kelas: [], guru_bk: [], kasus: [] });
+  const [editingCase, setEditingCase] = useState<CaseRecord | null>(null);
+  const [loginCreds, setLoginCreds] = useState({ user: '', pass: '' });
+  const [loginError, setLoginError] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState<any>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  // Initialize data
+  useEffect(() => {
+    const loadData = async () => {
+      await dbService.init();
+      const siswa = await dbService.getAll<Student>("siswa");
+      const wali_kelas = await dbService.getAll<Teacher>("wali_kelas");
+      const guru_bk = await dbService.getAll<Teacher>("guru_bk");
+      const kasus = await dbService.getAll<CaseRecord>("kasus");
+      setDbState({ siswa, wali_kelas, guru_bk, kasus });
+    };
+    loadData();
+  }, []);
+
+  const refreshMemory = async () => {
+    const siswa = await dbService.getAll<Student>("siswa");
+    const wali_kelas = await dbService.getAll<Teacher>("wali_kelas");
+    const guru_bk = await dbService.getAll<Teacher>("guru_bk");
+    const kasus = await dbService.getAll<CaseRecord>("kasus");
+    setDbState({ siswa, wali_kelas, guru_bk, kasus });
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginCreds.user === 'admin' && loginCreds.pass === 'admin123') {
+      setIsLoggedIn(true);
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm("Yakin ingin keluar?")) {
+      setIsLoggedIn(false);
+      setCurrentPage('dashboard');
+    }
+  };
+
+  const handleCaseSubmit = async (record: Omit<CaseRecord, 'created_at'>) => {
+    const newRecord = {
+      ...record,
+      created_at: editingCase ? editingCase.created_at : Date.now()
+    };
+    await dbService.put("kasus", newRecord);
+    await refreshMemory();
+    setEditingCase(null);
+    setCurrentPage('laporan');
+    alert("Data berhasil disimpan!");
+  };
+
+  const handleDeleteCase = async (id: number) => {
+    if (confirm("Apakah Anda yakin ingin menghapus data ini?")) {
+      await dbService.delete("kasus", id);
+      await refreshMemory();
+    }
+  };
+
+  const handleEditCase = (record: CaseRecord) => {
+    setEditingCase(record);
+    setCurrentPage('input');
+  };
+
+  const handleStatusUpdate = async (id: number, status: CaseStatus) => {
+    const item = dbState.kasus.find(k => k.id === id);
+    if (item) {
+      await dbService.put("kasus", { ...item, status });
+      await refreshMemory();
+    }
+  };
+
+  const handleAiAnalysis = async (kronologi: string, kategori: string) => {
+    setIsAiLoading(true);
+    setAiAnalysis(null);
+    const result = await analyzeCase(kronologi, kategori);
+    setAiAnalysis(result);
+    setIsAiLoading(false);
+  };
+
+  // Views
+  if (!isLoggedIn) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="bg-white/95 backdrop-blur-md w-full max-w-md rounded-[2.5rem] shadow-2xl p-10 border border-white/50">
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto mb-4 flex items-center justify-center text-white text-4xl font-bold shadow-xl">BK</div>
+            <h2 className="text-3xl font-bold text-indigo-900 tracking-tight">BK Peduli Siswa</h2>
+            <p className="text-slate-500 text-sm mt-3 leading-relaxed">"Pendekatan Edukatif dan Humanis dalam layanan Konseling Siswa"</p>
+          </div>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-1">
+              <label className="block text-xs font-bold uppercase text-slate-400 ml-1">Username</label>
+              <input 
+                type="text" 
+                required 
+                className="w-full px-5 py-3.5 rounded-2xl border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-400 outline-none transition-all" 
+                placeholder="admin"
+                value={loginCreds.user}
+                onChange={e => setLoginCreds({...loginCreds, user: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-bold uppercase text-slate-400 ml-1">Password</label>
+              <input 
+                type="password" 
+                required 
+                className="w-full px-5 py-3.5 rounded-2xl border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-400 outline-none transition-all" 
+                placeholder="••••••••"
+                value={loginCreds.pass}
+                onChange={e => setLoginCreds({...loginCreds, pass: e.target.value})}
+              />
+            </div>
+            {loginError && <div className="text-red-500 text-xs font-bold text-center">Username atau Password salah!</div>}
+            <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 transform hover:-translate-y-1 transition duration-200 mt-4 shadow-xl shadow-indigo-200 flex items-center justify-center gap-2">
+              <ShieldAlert size={20} /> Buka Layanan
+            </button>
+          </form>
+          <p className="text-center text-[10px] text-slate-400 mt-6 uppercase tracking-widest font-bold italic">Database Local Storage Terenkripsi</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-20">
+      <Navbar 
+        currentPage={currentPage} 
+        onPageChange={(p) => {
+          if (p === 'input' && !editingCase) {
+             setEditingCase(null);
+          }
+          setCurrentPage(p);
+        }} 
+        onLogout={handleLogout} 
+      />
+      
+      <main className="max-w-7xl mx-auto p-4 md:p-8">
+        {currentPage === 'dashboard' && (
+          <DashboardView dbState={dbState} />
+        )}
+        {currentPage === 'master' && (
+          <MasterView dbState={dbState} onRefresh={refreshMemory} />
+        )}
+        {currentPage === 'input' && (
+          <InputView 
+            dbState={dbState} 
+            editingCase={editingCase} 
+            onSubmit={handleCaseSubmit} 
+            onCancel={() => {
+              setEditingCase(null);
+              setCurrentPage('laporan');
+            }}
+            onAiAnalysis={handleAiAnalysis}
+            onClearAiAnalysis={() => setAiAnalysis(null)}
+            aiAnalysis={aiAnalysis}
+            isAiLoading={isAiLoading}
+          />
+        )}
+        {currentPage === 'laporan' && (
+          <ReportView 
+            dbState={dbState} 
+            onEdit={handleEditCase} 
+            onDelete={handleDeleteCase} 
+            onStatusUpdate={handleStatusUpdate}
+          />
+        )}
+      </main>
+    </div>
+  );
+};
+
+// Sub-Views
+const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
+  const stats = useMemo(() => ({
+    baru: dbState.kasus.filter(k => k.status === CaseStatus.BARU).length,
+    proses: dbState.kasus.filter(k => k.status === CaseStatus.PROSES).length,
+    selesai: dbState.kasus.filter(k => k.status === CaseStatus.SELESAI).length,
+  }), [dbState.kasus]);
+
+  const chartData = [
+    { name: 'Baru', count: stats.baru, color: '#3b82f6' },
+    { name: 'Proses', count: stats.proses, color: '#f59e0b' },
+    { name: 'Selesai', count: stats.selesai, color: '#10b981' },
+  ];
+
+  const categoryData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    dbState.kasus.forEach(k => {
+      counts[k.kategori_kasus] = (counts[k.kategori_kasus] || 0) + 1;
+    });
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
+  }, [dbState.kasus]);
+
+  const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#10b981', '#f59e0b'];
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-card p-8 rounded-[2rem] border-l-[12px] border-blue-400 flex justify-between items-center group hover:scale-[1.02] transition-transform">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Antrean Kasus</p>
+            <h2 className="text-6xl font-bold mt-2 text-blue-600">{stats.baru}</h2>
+          </div>
+          <Clock size={48} className="text-blue-200 group-hover:text-blue-300 transition-colors" />
+        </div>
+        <div className="glass-card p-8 rounded-[2rem] border-l-[12px] border-amber-400 flex justify-between items-center group hover:scale-[1.02] transition-transform">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Dalam Proses</p>
+            <h2 className="text-6xl font-bold mt-2 text-amber-500">{stats.proses}</h2>
+          </div>
+          <Activity size={48} className="text-amber-200 group-hover:text-amber-300 transition-colors" />
+        </div>
+        <div className="glass-card p-8 rounded-[2rem] border-l-[12px] border-emerald-400 flex justify-between items-center group hover:scale-[1.02] transition-transform">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Selesai</p>
+            <h2 className="text-6xl font-bold mt-2 text-emerald-600">{stats.selesai}</h2>
+          </div>
+          <CheckCircle2 size={48} className="text-emerald-200 group-hover:text-emerald-300 transition-colors" />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="glass-card p-8 rounded-[2.5rem] min-h-[400px]">
+          <h3 className="text-lg font-bold mb-8 text-slate-800 flex items-center gap-2">
+            <LayoutDashboard size={20} className="text-indigo-600" /> Statistik Penanganan
+          </h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                <Tooltip 
+                  cursor={{fill: '#f8fafc'}}
+                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                />
+                <Bar dataKey="count" radius={[8, 8, 0, 0]}>
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="glass-card p-8 rounded-[2.5rem] min-h-[400px]">
+          <h3 className="text-lg font-bold mb-8 text-slate-800 flex items-center gap-2">
+            <ShieldAlert size={20} className="text-indigo-600" /> Distribusi Kategori Kasus
+          </h3>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={categoryData}
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {categoryData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                   contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                />
+                <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MasterView: React.FC<{ dbState: DatabaseState, onRefresh: () => void }> = ({ dbState, onRefresh }) => {
+  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      const bstr = evt.target?.result;
+      const wb = XLSX.read(bstr, { type: 'binary' });
+      
+      const sheets = {
+        Siswa: "siswa",
+        WaliKelas: "wali_kelas",
+        GuruBK: "guru_bk"
+      };
+
+      for (const [sheetName, storeName] of Object.entries(sheets)) {
+        const ws = wb.Sheets[sheetName];
+        if (ws) {
+          const data = XLSX.utils.sheet_to_json(ws);
+          await dbService.clear(storeName);
+          for (const item of data as any[]) {
+            await dbService.put(storeName, item);
+          }
+        }
+      }
+      
+      onRefresh();
+      alert("Data Master berhasil diimpor!");
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleBackup = () => {
+    const data = JSON.stringify(dbState);
+    const blob = new window.Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Backup_BK_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const data: DatabaseState = JSON.parse(evt.target?.result as string);
+        const stores = ["siswa", "wali_kelas", "guru_bk", "kasus"];
+        for (const store of stores) {
+          await dbService.clear(store);
+          const items = (data as any)[store] || [];
+          for (const item of items as any[]) {
+            await dbService.put(store, item);
+          }
+        }
+        onRefresh();
+        alert("Database berhasil direstore!");
+      } catch (err) {
+        alert("File backup tidak valid!");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="glass-card p-8 rounded-[2.5rem]">
+          <h3 className="text-xl font-bold text-indigo-900 mb-2 flex items-center gap-2">
+            <Upload size={24} /> Import Data Master (Excel)
+          </h3>
+          <p className="text-xs text-slate-500 mb-4 bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+            Gunakan file Excel dengan Sheet: <b>Siswa</b>, <b>WaliKelas</b>, <b>GuruBK</b>.<br/>
+            Kolom Siswa: Nama, Kelas. Kolom lainnya: Nama.
+            <span className="text-red-500 font-bold mt-2 block italic">*Data lama akan ditimpa!</span>
+          </p>
+          <input 
+            type="file" 
+            accept=".xlsx, .xls" 
+            onChange={handleExcelImport}
+            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-indigo-600 file:text-white cursor-pointer hover:file:bg-indigo-700 transition-all" 
+          />
+        </div>
+        <div className="glass-card p-8 rounded-[2.5rem]">
+          <h3 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+            <Database size={24} /> Backup & Restore
+          </h3>
+          <p className="text-xs text-slate-500 mb-4">Amankan seluruh data kasus dan data master ke file JSON.</p>
+          <div className="flex gap-4 mt-2">
+            <button onClick={handleBackup} className="flex-1 bg-slate-800 text-white py-4 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-slate-700 transition flex items-center justify-center gap-2">
+              <Download size={16} /> Backup DB
+            </button>
+            <label className="flex-1 bg-white border-2 border-slate-200 text-slate-700 py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-center cursor-pointer hover:bg-slate-50 transition flex items-center justify-center gap-2">
+              <Upload size={16} /> Restore <input type="file" accept=".json" className="hidden" onChange={handleRestore} />
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div className="glass-card p-8 rounded-[2.5rem]">
+        <h4 className="font-bold text-sm mb-6 uppercase tracking-wider text-slate-400">Preview Ketersediaan Data</h4>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 group hover:bg-indigo-100 transition-colors">
+            <span className="block text-4xl font-bold text-indigo-600 mb-1">{dbState.siswa.length}</span>
+            <span className="text-[10px] uppercase font-black text-slate-400">Siswa Terdaftar</span>
+          </div>
+          <div className="bg-purple-50/50 p-6 rounded-3xl border border-purple-100 group hover:bg-purple-100 transition-colors">
+            <span className="block text-4xl font-bold text-purple-600 mb-1">{dbState.wali_kelas.length}</span>
+            <span className="text-[10px] uppercase font-black text-slate-400">Wali Kelas</span>
+          </div>
+          <div className="bg-pink-50/50 p-6 rounded-3xl border border-pink-100 group hover:bg-pink-100 transition-colors">
+            <span className="block text-4xl font-bold text-pink-600 mb-1">{dbState.guru_bk.length}</span>
+            <span className="text-[10px] uppercase font-black text-slate-400">Guru BK</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const InputView: React.FC<{ 
+  dbState: DatabaseState, 
+  editingCase: CaseRecord | null, 
+  onSubmit: (r: any) => void,
+  onCancel: () => void,
+  onAiAnalysis: (kron: string, kat: string) => void,
+  onClearAiAnalysis: () => void,
+  aiAnalysis: any,
+  isAiLoading: boolean
+}> = ({ dbState, editingCase, onSubmit, onCancel, onAiAnalysis, onClearAiAnalysis, aiAnalysis, isAiLoading }) => {
+  const [formData, setFormData] = useState<Partial<CaseRecord>>({
+    tanggal: new Date().toISOString().split('T')[0],
+    kategori_kasus: '',
+    kelas: '',
+    nama_siswa: '',
+    guru_kelas: '',
+    guru_bk: '',
+    kronologi: '',
+    tindak_lanjut: 'Konseling Individu',
+    status: CaseStatus.BARU,
+    lampiran: []
+  });
+
+  useEffect(() => {
+    if (editingCase) setFormData(editingCase);
+  }, [editingCase]);
+
+  const CLASSES = useMemo(() => {
+    const list: string[] = [];
+    ['7', '8', '9'].forEach(grade => {
+      ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].forEach(section => {
+        list.push(grade + section);
+      });
+    });
+    return list;
+  }, []);
+
+  // Updated to handle case-insensitive Excel properties (Nama/nama, Kelas/kelas)
+  const filteredStudents = useMemo(() => {
+    if (!formData.kelas) return [];
+    return dbState.siswa.filter(s => {
+      const sKelas = (s as any).Kelas || (s as any).kelas;
+      return sKelas && sKelas.toString().toUpperCase() === formData.kelas?.toUpperCase();
+    });
+  }, [formData.kelas, dbState.siswa]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach((f: any) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setFormData(prev => ({
+          ...prev,
+          lampiran: [...(prev.lampiran || []), {
+            name: f.name,
+            type: f.type,
+            data: ev.target?.result as string
+          }]
+        }));
+      };
+      reader.readAsDataURL(f);
+    });
+  };
+
+  const removeFile = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      lampiran: prev.lampiran?.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const inputClass = "w-full p-4.5 rounded-2xl border border-slate-100 bg-white/60 shadow-sm focus:ring-2 focus:ring-indigo-300 outline-none transition-all placeholder:text-slate-300 text-slate-700 appearance-none";
+
+  return (
+    <div className="max-w-6xl mx-auto animate-in zoom-in-95 duration-300">
+      <form 
+        onSubmit={(e) => { e.preventDefault(); onSubmit(formData); }} 
+        className="glass-card p-8 md:p-14 rounded-[3.5rem] border border-white/50 shadow-2xl relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 w-full h-2.5 bg-indigo-500/80"></div>
+        
+        {editingCase && (
+          <div className="absolute top-8 right-12 bg-amber-100 text-amber-800 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-200 animate-pulse">
+            Edit Mode
+          </div>
+        )}
+
+        <div className="mb-14">
+          <h3 className="text-5xl font-bold text-indigo-950 tracking-tight">Input Detail Kasus</h3>
+          <p className="text-slate-400 text-xl mt-3 font-medium">Lengkapi data laporan siswa secara objektif dan akurat.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
+          {/* Row 1 */}
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">TANGGAL KEJADIAN</label>
+            <div className="relative group">
+              <input 
+                type="date" 
+                required 
+                className={inputClass + " pr-12"}
+                value={formData.tanggal}
+                onChange={e => setFormData({...formData, tanggal: e.target.value})}
+              />
+              <Calendar className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-400 transition-colors pointer-events-none" size={22} />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">KATEGORI KASUS</label>
+            <div className="relative">
+              <select 
+                required 
+                className={inputClass}
+                value={formData.kategori_kasus}
+                onChange={e => setFormData({...formData, kategori_kasus: e.target.value})}
+              >
+                <option value="">-- Pilih Jenis Kasus --</option>
+                {['Kedisiplinan', 'Etika', 'Akademik', 'Bullying', 'Perkelahian', 'Merokok', 'Narkoba', 'Lainnya'].map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
+            </div>
+          </div>
+
+          {/* Row 2 */}
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">KELAS</label>
+            <div className="relative">
+              <select 
+                required 
+                className={inputClass}
+                value={formData.kelas}
+                onChange={e => setFormData({...formData, kelas: e.target.value, nama_siswa: ''})}
+              >
+                <option value="">-- Pilih Kelas --</option>
+                {CLASSES.map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">NAMA SISWA</label>
+            <div className="relative">
+              {/* Changed from Input list to Select for better visibility of data */}
+              <select 
+                required 
+                className={inputClass} 
+                value={formData.nama_siswa}
+                onChange={e => setFormData({...formData, nama_siswa: e.target.value})}
+                disabled={!formData.kelas}
+              >
+                {!formData.kelas ? (
+                   <option value="">Pilih kelas terlebih dahulu...</option>
+                ) : filteredStudents.length === 0 ? (
+                   <option value="">Tidak ada data siswa di kelas ini (Cek Master)</option>
+                ) : (
+                   <>
+                     <option value="">-- Pilih Nama Siswa --</option>
+                     {filteredStudents.map((s, i) => {
+                       const sNama = (s as any).Nama || (s as any).nama;
+                       return <option key={i} value={sNama}>{sNama}</option>;
+                     })}
+                   </>
+                )}
+              </select>
+              <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
+            </div>
+          </div>
+
+          {/* Row 3 */}
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">WALI KELAS</label>
+            <div className="relative">
+              <input 
+                list="wali-list"
+                className={inputClass}
+                placeholder="Masukkan nama Wali Kelas"
+                value={formData.guru_kelas}
+                onChange={e => setFormData({...formData, guru_kelas: e.target.value})}
+              />
+              <datalist id="wali-list">
+                {dbState.wali_kelas.map((t, i) => <option key={i} value={t.Nama || (t as any).nama} />)}
+              </datalist>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">GURU BK</label>
+            <div className="relative">
+              <input 
+                list="bk-list"
+                required 
+                className={inputClass}
+                placeholder="Masukkan nama Guru BK"
+                value={formData.guru_bk}
+                onChange={e => setFormData({...formData, guru_bk: e.target.value})}
+              />
+              <datalist id="bk-list">
+                {dbState.guru_bk.map((t, i) => <option key={i} value={t.Nama || (t as any).nama} />)}
+              </datalist>
+            </div>
+          </div>
+        </div>
+
+        {/* Kronologi */}
+        <div className="space-y-4 mt-16">
+          <div className="flex justify-between items-end mb-3">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">KRONOLOGI KEJADIAN</label>
+            <button 
+              type="button" 
+              onClick={() => onAiAnalysis(formData.kronologi || '', formData.kategori_kasus || '')}
+              disabled={!formData.kronologi || isAiLoading}
+              className="text-[11px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 px-7 py-3 rounded-full flex items-center gap-3 hover:bg-indigo-100 transition-all disabled:opacity-50 shadow-sm border border-indigo-100"
+            >
+              {isAiLoading ? <Loader2 size={16} className="animate-spin" /> : <BrainCircuit size={18} />} 
+              Dapatkan Analisis AI
+            </button>
+          </div>
+          <textarea 
+            rows={7} 
+            required 
+            placeholder="Tuliskan urutan kejadian secara lengkap dan objektif..." 
+            className="w-full p-10 rounded-[3rem] border border-slate-100 bg-white/60 shadow-sm focus:ring-2 focus:ring-indigo-300 outline-none resize-none text-lg leading-relaxed transition-all placeholder:text-slate-300"
+            value={formData.kronologi}
+            onChange={e => setFormData({...formData, kronologi: e.target.value})}
+          ></textarea>
+        </div>
+
+        {aiAnalysis && (
+          <div className="p-12 bg-indigo-50/70 rounded-[3rem] border border-indigo-100 animate-in fade-in slide-in-from-top-4 duration-500 relative mt-10">
+             <button type="button" onClick={onClearAiAnalysis} className="absolute top-10 right-10 text-indigo-300 hover:text-indigo-600 transition-colors">
+               <X size={28} />
+             </button>
+             <h4 className="text-2xl font-bold text-indigo-900 mb-8 flex items-center gap-4">
+               <BrainCircuit size={28} className="text-indigo-600" /> Rekomendasi Psikologis Gemini AI
+             </h4>
+             <div className="space-y-8 text-base leading-relaxed text-slate-700">
+               <div><span className="font-bold text-indigo-600 uppercase text-[12px] tracking-widest block mb-2">Analisis Kasus:</span> {aiAnalysis.analisis}</div>
+               <div><span className="font-bold text-indigo-600 uppercase text-[12px] tracking-widest block mb-2">Pendekatan Disarankan:</span> {aiAnalysis.pendekatan}</div>
+               <div>
+                  <span className="font-bold text-indigo-600 uppercase text-[12px] tracking-widest block mb-2">Langkah Strategis:</span>
+                  <ul className="list-disc ml-8 mt-4 space-y-3">
+                    {aiAnalysis.saran?.map((s: string, i: number) => <li key={i}>{s}</li>)}
+                  </ul>
+               </div>
+             </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12 mt-16">
+           <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">TINDAK LANJUT UTAMA</label>
+            <div className="relative">
+              <select 
+                className={inputClass}
+                value={formData.tindak_lanjut}
+                onChange={e => setFormData({...formData, tindak_lanjut: e.target.value})}
+              >
+                {['Konseling Individu', 'Konseling Kelompok', 'Panggilan Orang Tua', 'Mediasi', 'Home Visit', 'Skorsing', 'Lainnya'].map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" size={20} />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <label className="text-[13px] font-bold uppercase text-slate-400 tracking-wider block ml-1">STATUS LAPORAN</label>
+            <div className="flex gap-3 p-2.5 bg-slate-50/50 rounded-2xl border border-slate-100 shadow-inner">
+              {[CaseStatus.BARU, CaseStatus.PROSES, CaseStatus.SELESAI].map(s => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setFormData({...formData, status: s})}
+                  className={`flex-1 py-4 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${formData.status === s ? 'bg-white shadow-md text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-14 bg-slate-50/40 rounded-[3.5rem] border-2 border-dashed border-slate-200 group hover:border-indigo-300 transition-all mt-16">
+          <label className="block text-[13px] font-bold mb-8 uppercase text-slate-400 tracking-wider ml-1">LAMPIRAN BUKTI FISIK</label>
+          <input 
+            type="file" 
+            multiple 
+            onChange={handleFileChange}
+            className="block w-full text-sm text-slate-400 file:mr-10 file:py-5 file:px-12 file:rounded-full file:border-0 file:bg-white file:text-indigo-600 file:font-black file:text-[11px] file:uppercase file:tracking-widest file:shadow-md hover:file:bg-indigo-50 transition-all cursor-pointer" 
+          />
+          <div className="flex flex-wrap gap-6 mt-12">
+            {formData.lampiran?.map((f, i) => (
+              <div key={i} className="bg-white/80 px-7 py-5 rounded-2xl text-[12px] font-bold flex gap-5 items-center border border-slate-100 shadow-sm animate-in fade-in zoom-in-90 group-hover:bg-white transition-all">
+                <FileText size={20} className="text-indigo-500" />
+                <span className="truncate max-w-[200px] text-slate-700">{f.name}</span> 
+                <button type="button" onClick={() => removeFile(i)} className="text-red-400 hover:text-red-600 transition-colors ml-4">
+                  <X size={22} />
+                </button>
+              </div>
+            ))}
+            {(!formData.lampiran || formData.lampiran.length === 0) && (
+              <p className="text-slate-400 text-sm italic py-2 ml-1">Belum ada file yang diunggah.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="pt-16 border-t border-slate-50 flex justify-end gap-8 mt-16">
+          <button 
+            type="button" 
+            onClick={onCancel} 
+            className="bg-slate-100 text-slate-500 px-14 py-6 rounded-2xl font-bold hover:bg-slate-200 transition-all text-sm active:scale-95"
+          >
+            Batal
+          </button>
+          <button 
+            type="submit" 
+            className={`px-20 py-6 rounded-2xl font-black uppercase tracking-widest shadow-2xl transition-all active:scale-95 text-[12px] flex items-center gap-5 ${editingCase ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'} text-white`}
+          >
+            {editingCase ? <Edit size={22} /> : <CheckCircle2 size={22} />} {editingCase ? 'Update Laporan' : 'Simpan Laporan'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const ReportView: React.FC<{ 
+  dbState: DatabaseState, 
+  onEdit: (r: CaseRecord) => void, 
+  onDelete: (id: number) => void,
+  onStatusUpdate: (id: number, s: CaseStatus) => void
+}> = ({ dbState, onEdit, onDelete, onStatusUpdate }) => {
+  const [search, setSearch] = useState("");
+  const [filterKategori, setFilterKategori] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+
+  const filtered = useMemo(() => {
+    return dbState.kasus
+      .filter(k => 
+        (k.nama_siswa.toLowerCase().includes(search.toLowerCase()) || k.kelas.toLowerCase().includes(search.toLowerCase())) &&
+        (filterKategori ? k.kategori_kasus === filterKategori : true) &&
+        (filterStatus ? k.status === filterStatus : true)
+      )
+      .sort((a, b) => b.created_at - a.created_at);
+  }, [dbState.kasus, search, filterKategori, filterStatus]);
+
+  const handleExport = () => {
+    if (filtered.length === 0) return alert("Tidak ada data untuk diekspor");
+    const ws = XLSX.utils.json_to_sheet(filtered.map(({ lampiran, ...rest }) => ({ ...rest, jum_file: lampiran.length })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap_Kasus");
+    XLSX.writeFile(wb, `Laporan_BK_Siswa_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  return (
+    <div className="glass-card p-6 md:p-10 rounded-[3rem] shadow-2xl animate-in fade-in duration-500">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+        <div>
+          <h3 className="text-3xl font-bold text-indigo-950">Rekapitulasi Kasus</h3>
+          <p className="text-sm text-slate-400 mt-1">Database lengkap penanganan bimbingan konseling siswa.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <div className="relative flex-1 lg:min-w-[250px]">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Cari Siswa/Kelas..." 
+              className="w-full pl-12 pr-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 focus:ring-2 focus:ring-indigo-400 outline-none text-sm"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <button onClick={handleExport} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition flex items-center gap-2 shadow-lg shadow-emerald-100">
+            <Download size={16} /> Excel
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 mb-6">
+        <select 
+          className="bg-white px-4 py-2 rounded-xl text-xs font-bold border border-slate-100 shadow-sm outline-none"
+          value={filterKategori}
+          onChange={e => setFilterKategori(e.target.value)}
+        >
+          <option value="">Semua Kategori</option>
+          {['Kedisiplinan', 'Etika', 'Akademik', 'Bullying', 'Perkelahian', 'Merokok', 'Narkoba', 'Lainnya'].map(k => <option key={k} value={k}>{k}</option>)}
+        </select>
+        <select 
+          className="bg-white px-4 py-2 rounded-xl text-xs font-bold border border-slate-100 shadow-sm outline-none"
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+        >
+          <option value="">Semua Status</option>
+          {[CaseStatus.BARU, CaseStatus.PROSES, CaseStatus.SELESAI].map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      <div className="overflow-x-auto rounded-3xl border border-slate-50">
+        <table className="w-full text-left border-collapse min-w-[1000px]">
+          <thead>
+            <tr className="text-[10px] uppercase font-black text-slate-400 border-b border-slate-100 bg-slate-50/50">
+              <th className="p-5 font-bold">Tanggal</th>
+              <th className="p-5 font-bold">Informasi Siswa</th>
+              <th className="p-5 font-bold">Kategori</th>
+              <th className="p-5 font-bold">Tindak Lanjut</th>
+              <th className="p-5 font-bold text-center">Berkas</th>
+              <th className="p-5 font-bold text-center">Status</th>
+              <th className="p-5 font-bold text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody className="text-sm divide-y divide-slate-50">
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="p-20 text-center">
+                  <div className="flex flex-col items-center opacity-30 grayscale">
+                    <Database size={64} className="mb-4 text-slate-300" />
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Belum ada data ditemukan</p>
+                  </div>
+                </td>
+              </tr>
+            ) : filtered.map((k) => (
+              <tr key={k.id} className="hover:bg-white transition-colors group">
+                <td className="p-5 whitespace-nowrap text-slate-500 font-medium">{k.tanggal}</td>
+                <td className="p-5">
+                  <div className="font-bold text-indigo-900">{k.nama_siswa}</div>
+                  <div className="text-[10px] uppercase font-black text-slate-400 tracking-tight">Kelas {k.kelas}</div>
+                </td>
+                <td className="p-5">
+                  <span className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider">{k.kategori_kasus}</span>
+                </td>
+                <td className="p-5">
+                  <div className="max-w-[200px] truncate font-medium text-slate-600" title={k.tindak_lanjut}>{k.tindak_lanjut}</div>
+                  <div className="text-[9px] text-slate-400">Oleh: {k.guru_bk}</div>
+                </td>
+                <td className="p-5 text-center">
+                  {k.lampiran.length > 0 ? (
+                    <button 
+                      onClick={() => alert(`Total ${k.lampiran.length} file terlampir`)}
+                      className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-[10px] font-black hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-2 mx-auto"
+                    >
+                      <FileText size={12} /> {k.lampiran.length} File
+                    </button>
+                  ) : <span className="text-slate-200">-</span>}
+                </td>
+                <td className="p-5 text-center">
+                  <select 
+                    value={k.status} 
+                    onChange={e => onStatusUpdate(k.id!, e.target.value as CaseStatus)}
+                    className={`text-[10px] font-black uppercase px-3 py-2 rounded-xl border-none outline-none appearance-none text-center cursor-pointer transition-colors ${
+                      k.status === CaseStatus.BARU ? 'bg-blue-100 text-blue-700' : 
+                      k.status === CaseStatus.PROSES ? 'bg-amber-100 text-amber-700' : 
+                      'bg-emerald-100 text-emerald-700'
+                    }`}
+                  >
+                    <option value={CaseStatus.BARU}>Baru</option>
+                    <option value={CaseStatus.PROSES}>Proses</option>
+                    <option value={CaseStatus.SELESAI}>Selesai</option>
+                  </select>
+                </td>
+                <td className="p-5 text-center">
+                  <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => onEdit(k)}
+                      className="p-2 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-colors"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(k.id!)}
+                      className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export default App;
