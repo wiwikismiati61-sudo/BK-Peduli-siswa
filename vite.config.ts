@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
-    const geminiApiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY;
+    const geminiApiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || '';
     
     return {
       server: {
