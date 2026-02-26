@@ -185,9 +185,19 @@ const App: React.FC = () => {
   const handleAiAnalysis = async (kronologi: string, kategori: string) => {
     setIsAiLoading(true);
     setAiAnalysis(null);
-    const result = await analyzeCase(kronologi, kategori);
-    setAiAnalysis(result);
-    setIsAiLoading(false);
+    try {
+      const result = await analyzeCase(kronologi, kategori);
+      setAiAnalysis(result);
+    } catch (error: any) {
+      if (error.message.includes("GEMINI_API_KEY")) {
+        alert("KONFIGURASI ERROR: GEMINI_API_KEY tidak ditemukan. Silakan atur di Environment Variables pada pengaturan proyek Vercel Anda.");
+      } else {
+        alert("Terjadi kesalahan saat menghubungi layanan AI. Coba lagi nanti.");
+        console.error("AI Analysis error:", error);
+      }
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   // Views

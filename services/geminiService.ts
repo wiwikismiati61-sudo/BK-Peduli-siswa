@@ -2,12 +2,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 // Always use the named parameter and process.env.API_KEY for initialization
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let ai: GoogleGenAI | null = null;
+
+const getAiClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("GEMINI_API_KEY environment variable not set.");
+  }
+  if (!ai) {
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return ai;
+};
 
 export const analyzeCase = async (kronologi: string, kategori: string) => {
   try {
+    const aiClient = getAiClient();
     // Using gemini-3-pro-preview for complex reasoning tasks like psychological analysis
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: "gemini-3-pro-preview",
       contents: `Analisislah kasus bimbingan konseling berikut ini dan berikan saran penanganan yang edukatif, humanis, dan sesuai dengan etika konseling sekolah.
       
@@ -43,6 +54,6 @@ export const analyzeCase = async (kronologi: string, kategori: string) => {
     return JSON.parse(text.trim());
   } catch (error) {
     console.error("AI Analysis error:", error);
-    return null;
+    throw error; // Re-throw the error to be caught by the UI
   }
 };
