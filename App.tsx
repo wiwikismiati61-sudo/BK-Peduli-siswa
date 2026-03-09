@@ -350,56 +350,56 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
   ];
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-card p-6 flex justify-between items-center group hover:shadow-md transition-all">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+        <div className="glass-card p-5 md:p-6 flex justify-between items-center group hover:shadow-md transition-all">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Antrean Kasus
             </p>
-            <h2 className="text-4xl font-light mt-2 text-slate-800">
+            <h2 className="text-3xl md:text-4xl font-light mt-1 md:mt-2 text-slate-800">
               {stats.baru}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
-            <Clock size={24} />
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-500">
+            <Clock size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
-        <div className="glass-card p-6 flex justify-between items-center group hover:shadow-md transition-all">
+        <div className="glass-card p-5 md:p-6 flex justify-between items-center group hover:shadow-md transition-all">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Dalam Proses
             </p>
-            <h2 className="text-4xl font-light mt-2 text-slate-800">
+            <h2 className="text-3xl md:text-4xl font-light mt-1 md:mt-2 text-slate-800">
               {stats.proses}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
-            <Activity size={24} />
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-500">
+            <Activity size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
-        <div className="glass-card p-6 flex justify-between items-center group hover:shadow-md transition-all">
+        <div className="glass-card p-5 md:p-6 flex justify-between items-center group hover:shadow-md transition-all">
           <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">
               Selesai
             </p>
-            <h2 className="text-4xl font-light mt-2 text-slate-800">
+            <h2 className="text-3xl md:text-4xl font-light mt-1 md:mt-2 text-slate-800">
               {stats.selesai}
             </h2>
           </div>
-          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
-            <CheckCircle2 size={24} />
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
+            <CheckCircle2 size={20} className="md:w-6 md:h-6" />
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="glass-card p-8 min-h-[400px]">
-          <h3 className="text-base font-semibold mb-8 text-slate-800 flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+        <div className="glass-card p-5 md:p-8 min-h-[350px] md:min-h-[400px]">
+          <h3 className="text-sm md:text-base font-semibold mb-6 md:mb-8 text-slate-800 flex items-center gap-2">
             <LayoutDashboard size={18} className="text-indigo-500" /> Statistik
             Penanganan
           </h3>
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid
@@ -436,12 +436,12 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
           </div>
         </div>
 
-        <div className="glass-card p-8 min-h-[400px]">
-          <h3 className="text-base font-semibold mb-8 text-slate-800 flex items-center gap-2">
+        <div className="glass-card p-5 md:p-8 min-h-[350px] md:min-h-[400px]">
+          <h3 className="text-sm md:text-base font-semibold mb-6 md:mb-8 text-slate-800 flex items-center gap-2">
             <ShieldAlert size={18} className="text-indigo-500" /> Distribusi
             Kategori Kasus
           </h3>
-          <div className="h-[300px] w-full">
+          <div className="h-[250px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -554,17 +554,17 @@ const MasterView: React.FC<{
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="glass-card p-8">
-          <h3 className="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+        <div className="glass-card p-5 md:p-8">
+          <h3 className="text-base md:text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
             <Upload size={20} className="text-indigo-500" /> Import Data Master
             (Excel)
           </h3>
-          <p className="text-xs text-slate-500 mb-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <p className="text-[10px] md:text-xs text-slate-500 mb-4 bg-slate-50 p-3 md:p-4 rounded-xl border border-slate-100">
             Gunakan file Excel dengan Sheet: <b>Siswa</b>, <b>WaliKelas</b>,{" "}
             <b>GuruBK</b>.<br />
             Kolom Siswa: Nama, Kelas. Kolom lainnya: Nama.
-            <span className="text-red-500 font-medium mt-2 block">
+            <span className="text-red-500 font-medium mt-1 md:mt-2 block">
               *Data lama akan ditimpa!
             </span>
           </p>
@@ -572,24 +572,24 @@ const MasterView: React.FC<{
             type="file"
             accept=".xlsx, .xls"
             onChange={handleExcelImport}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 cursor-pointer hover:file:bg-indigo-100 transition-all"
+            className="block w-full text-xs md:text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 md:file:py-2.5 md:file:px-6 file:rounded-xl file:border-0 file:text-[10px] md:file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 cursor-pointer hover:file:bg-indigo-100 transition-all"
           />
         </div>
-        <div className="glass-card p-8">
-          <h3 className="text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
+        <div className="glass-card p-5 md:p-8">
+          <h3 className="text-base md:text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
             <Database size={20} className="text-indigo-500" /> Backup & Restore
           </h3>
-          <p className="text-xs text-slate-500 mb-4">
+          <p className="text-[10px] md:text-xs text-slate-500 mb-4">
             Amankan seluruh data kasus dan data master ke file JSON.
           </p>
-          <div className="flex gap-4 mt-2">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4 mt-2">
             <button
               onClick={handleBackup}
-              className="flex-1 bg-slate-800 text-white py-3 rounded-xl text-xs font-semibold hover:bg-slate-700 transition flex items-center justify-center gap-2"
+              className="flex-1 bg-slate-800 text-white py-2.5 md:py-3 rounded-xl text-[10px] md:text-xs font-semibold hover:bg-slate-700 transition flex items-center justify-center gap-2"
             >
               <Download size={16} /> Backup DB
             </button>
-            <label className="flex-1 bg-white border border-slate-200 text-slate-700 py-3 rounded-xl text-xs font-semibold text-center cursor-pointer hover:bg-slate-50 transition flex items-center justify-center gap-2">
+            <label className="flex-1 bg-white border border-slate-200 text-slate-700 py-2.5 md:py-3 rounded-xl text-[10px] md:text-xs font-semibold text-center cursor-pointer hover:bg-slate-50 transition flex items-center justify-center gap-2">
               <Upload size={16} /> Restore{" "}
               <input
                 type="file"
@@ -602,32 +602,32 @@ const MasterView: React.FC<{
         </div>
       </div>
 
-      <div className="glass-card p-8">
-        <h4 className="font-semibold text-sm mb-6 text-slate-500">
+      <div className="glass-card p-5 md:p-8">
+        <h4 className="font-semibold text-xs md:text-sm mb-4 md:mb-6 text-slate-500">
           Preview Ketersediaan Data
         </h4>
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
-            <span className="block text-3xl font-light text-slate-800 mb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 text-center">
+          <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
+            <span className="block text-2xl md:text-3xl font-light text-slate-800 mb-1">
               {dbState.siswa.length}
             </span>
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-[10px] md:text-xs font-medium text-slate-500">
               Siswa Terdaftar
             </span>
           </div>
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
-            <span className="block text-3xl font-light text-slate-800 mb-1">
+          <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
+            <span className="block text-2xl md:text-3xl font-light text-slate-800 mb-1">
               {dbState.wali_kelas.length}
             </span>
-            <span className="text-xs font-medium text-slate-500">
+            <span className="text-[10px] md:text-xs font-medium text-slate-500">
               Wali Kelas
             </span>
           </div>
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
-            <span className="block text-3xl font-light text-slate-800 mb-1">
+          <div className="bg-slate-50 p-4 md:p-6 rounded-2xl border border-slate-100 group hover:bg-slate-100 transition-colors">
+            <span className="block text-2xl md:text-3xl font-light text-slate-800 mb-1">
               {dbState.guru_bk.length}
             </span>
-            <span className="text-xs font-medium text-slate-500">Guru BK</span>
+            <span className="text-[10px] md:text-xs font-medium text-slate-500">Guru BK</span>
           </div>
         </div>
       </div>
@@ -722,7 +722,7 @@ const InputView: React.FC<{
   };
 
   const inputClass =
-    "w-full p-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 text-slate-800 appearance-none";
+    "w-full p-3 md:p-4 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-400 text-slate-800 appearance-none text-sm md:text-base";
 
   return (
     <div className="max-w-5xl mx-auto animate-in zoom-in-95 duration-300">
@@ -731,50 +731,49 @@ const InputView: React.FC<{
           e.preventDefault();
           onSubmit(formData);
         }}
-        className="glass-card p-8 md:p-12 relative overflow-hidden"
+        className="glass-card p-5 md:p-8 lg:p-12 relative overflow-hidden"
       >
         <div className="absolute top-0 left-0 w-full h-1.5 bg-indigo-500"></div>
 
         {editingCase && (
-          <div className="absolute top-8 right-12 bg-amber-50 text-amber-700 px-4 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider border border-amber-200 animate-pulse">
+          <div className="absolute top-5 right-5 md:top-8 md:right-12 bg-amber-50 text-amber-700 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs font-semibold uppercase tracking-wider border border-amber-200 animate-pulse">
             Edit Mode
           </div>
         )}
 
-        <div className="mb-10">
-          <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
+        <div className="mb-6 md:mb-10">
+          <h3 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
             Input Detail Kasus
           </h3>
-          <p className="text-slate-500 text-base mt-2">
+          <p className="text-slate-500 text-sm md:text-base mt-1 md:mt-2">
             Lengkapi data laporan siswa secara objektif dan akurat.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 md:gap-x-12 gap-y-6 md:gap-y-12">
           {/* Row 1 */}
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               TANGGAL KEJADIAN
             </label>
             <div className="relative group">
               <input
                 type="date"
                 required
-                className={inputClass + " pr-12"}
+                className={inputClass + " pr-10 md:pr-12"}
                 value={formData.tanggal}
                 onChange={(e) =>
                   setFormData({ ...formData, tanggal: e.target.value })
                 }
               />
               <Calendar
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none"
-                size={20}
+                className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               KATEGORI KASUS
             </label>
             <div className="relative">
@@ -803,15 +802,14 @@ const InputView: React.FC<{
                 ))}
               </select>
               <ChevronDown
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={20}
+                className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
           </div>
 
           {/* Row 2 */}
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               KELAS
             </label>
             <div className="relative">
@@ -835,14 +833,13 @@ const InputView: React.FC<{
                 ))}
               </select>
               <ChevronDown
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={20}
+                className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               NAMA SISWA
             </label>
             <div className="relative">
@@ -877,15 +874,14 @@ const InputView: React.FC<{
                 )}
               </select>
               <ChevronDown
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                size={20}
+                className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
           </div>
 
           {/* Row 3 */}
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               WALI KELAS
             </label>
             <div className="relative">
@@ -906,8 +902,8 @@ const InputView: React.FC<{
             </div>
           </div>
 
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               GURU BK
             </label>
             <div className="relative">
@@ -931,9 +927,9 @@ const InputView: React.FC<{
         </div>
 
         {/* Kronologi */}
-        <div className="space-y-4 mt-12">
-          <div className="flex justify-between items-end mb-2">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+        <div className="space-y-2 md:space-y-4 mt-8 md:mt-12">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end mb-2 gap-2">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               KRONOLOGI KEJADIAN
             </label>
             <button
@@ -945,7 +941,7 @@ const InputView: React.FC<{
                 )
               }
               disabled={!formData.kronologi || isAiLoading}
-              className="text-xs font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-indigo-100 transition-all disabled:opacity-50 border border-indigo-100"
+              className="text-[10px] md:text-xs font-semibold uppercase tracking-wider bg-indigo-50 text-indigo-600 px-4 md:px-5 py-2 md:py-2.5 rounded-xl flex items-center justify-center gap-2 hover:bg-indigo-100 transition-all disabled:opacity-50 border border-indigo-100 w-full sm:w-auto"
             >
               {isAiLoading ? (
                 <Loader2 size={16} className="animate-spin" />
@@ -959,7 +955,7 @@ const InputView: React.FC<{
             rows={6}
             required
             placeholder="Tuliskan urutan kejadian secara lengkap dan objektif..."
-            className="w-full p-6 rounded-2xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-base leading-relaxed transition-all placeholder:text-slate-400 text-slate-800"
+            className="w-full p-4 md:p-6 rounded-2xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none text-sm md:text-base leading-relaxed transition-all placeholder:text-slate-400 text-slate-800"
             value={formData.kronologi}
             onChange={(e) =>
               setFormData({ ...formData, kronologi: e.target.value })
@@ -968,36 +964,36 @@ const InputView: React.FC<{
         </div>
 
         {aiAnalysis && (
-          <div className="p-8 bg-indigo-50/50 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-4 duration-500 relative mt-8">
+          <div className="p-5 md:p-8 bg-indigo-50/50 rounded-2xl border border-indigo-100 animate-in fade-in slide-in-from-top-4 duration-500 relative mt-6 md:mt-8">
             <button
               type="button"
               onClick={onClearAiAnalysis}
-              className="absolute top-6 right-6 text-indigo-400 hover:text-indigo-600 transition-colors"
+              className="absolute top-4 right-4 md:top-6 md:right-6 text-indigo-400 hover:text-indigo-600 transition-colors"
             >
-              <X size={24} />
+              <X size={20} className="md:w-6 md:h-6" />
             </button>
-            <h4 className="text-xl font-bold text-indigo-900 mb-6 flex items-center gap-3">
-              <BrainCircuit size={24} className="text-indigo-600" /> Rekomendasi
+            <h4 className="text-lg md:text-xl font-bold text-indigo-900 mb-4 md:mb-6 flex items-center gap-2 md:gap-3">
+              <BrainCircuit size={20} className="text-indigo-600 md:w-6 md:h-6" /> Rekomendasi
               Psikologis Gemini AI
             </h4>
-            <div className="space-y-6 text-sm leading-relaxed text-slate-700">
+            <div className="space-y-4 md:space-y-6 text-xs md:text-sm leading-relaxed text-slate-700">
               <div>
-                <span className="font-semibold text-indigo-600 uppercase text-[11px] tracking-wider block mb-1">
+                <span className="font-semibold text-indigo-600 uppercase text-[10px] md:text-[11px] tracking-wider block mb-1">
                   Analisis Kasus:
                 </span>{" "}
                 {aiAnalysis.analisis}
               </div>
               <div>
-                <span className="font-semibold text-indigo-600 uppercase text-[11px] tracking-wider block mb-1">
+                <span className="font-semibold text-indigo-600 uppercase text-[10px] md:text-[11px] tracking-wider block mb-1">
                   Pendekatan Disarankan:
                 </span>{" "}
                 {aiAnalysis.pendekatan}
               </div>
               <div>
-                <span className="font-semibold text-indigo-600 uppercase text-[11px] tracking-wider block mb-1">
+                <span className="font-semibold text-indigo-600 uppercase text-[10px] md:text-[11px] tracking-wider block mb-1">
                   Langkah Strategis:
                 </span>
-                <ul className="list-disc ml-6 mt-2 space-y-2">
+                <ul className="list-disc ml-4 md:ml-6 mt-1 md:mt-2 space-y-1 md:space-y-2">
                   {aiAnalysis.saran?.map((s: string, i: number) => (
                     <li key={i}>{s}</li>
                   ))}
@@ -1007,9 +1003,9 @@ const InputView: React.FC<{
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-8 mt-12">
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 md:gap-x-8 gap-y-6 md:gap-y-8 mt-8 md:mt-12">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               TINDAK LANJUT UTAMA
             </label>
             <div className="relative">
@@ -1035,23 +1031,22 @@ const InputView: React.FC<{
                 ))}
               </select>
               <ChevronDown
-                className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none"
-                size={20}
+                className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
           </div>
-          <div className="space-y-4">
-            <label className="text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
+          <div className="space-y-2 md:space-y-4">
+            <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
               STATUS LAPORAN
             </label>
-            <div className="flex gap-2 p-1.5 bg-slate-100/50 rounded-xl border border-slate-200">
+            <div className="flex flex-col sm:flex-row gap-2 p-1.5 bg-slate-100/50 rounded-xl border border-slate-200">
               {[CaseStatus.BARU, CaseStatus.PROSES, CaseStatus.SELESAI].map(
                 (s) => (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setFormData({ ...formData, status: s })}
-                    className={`flex-1 py-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all ${formData.status === s ? "bg-white shadow-sm text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
+                    className={`flex-1 py-2.5 md:py-3 rounded-lg text-[10px] md:text-xs font-semibold uppercase tracking-wider transition-all ${formData.status === s ? "bg-white shadow-sm text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"}`}
                   >
                     {s}
                   </button>
@@ -1061,56 +1056,56 @@ const InputView: React.FC<{
           </div>
         </div>
 
-        <div className="p-8 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 group hover:border-indigo-300 transition-all mt-12">
-          <label className="block text-xs font-semibold mb-4 uppercase text-slate-500 tracking-wider ml-1">
+        <div className="p-5 md:p-8 bg-slate-50/50 rounded-2xl border border-dashed border-slate-300 group hover:border-indigo-300 transition-all mt-8 md:mt-12">
+          <label className="block text-[10px] md:text-xs font-semibold mb-2 md:mb-4 uppercase text-slate-500 tracking-wider ml-1">
             LAMPIRAN BUKTI FISIK
           </label>
           <input
             type="file"
             multiple
             onChange={handleFileChange}
-            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-6 file:rounded-xl file:border-0 file:bg-white file:text-indigo-600 file:font-semibold file:text-xs file:uppercase file:tracking-wider file:shadow-sm hover:file:bg-indigo-50 transition-all cursor-pointer"
+            className="block w-full text-xs md:text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 md:file:py-2.5 md:file:px-6 file:rounded-xl file:border-0 file:bg-white file:text-indigo-600 file:font-semibold file:text-[10px] md:file:text-xs file:uppercase file:tracking-wider file:shadow-sm hover:file:bg-indigo-50 transition-all cursor-pointer"
           />
-          <div className="flex flex-wrap gap-4 mt-6">
+          <div className="flex flex-wrap gap-3 md:gap-4 mt-4 md:mt-6">
             {formData.lampiran?.map((f, i) => (
               <div
                 key={i}
-                className="bg-white px-4 py-3 rounded-xl text-xs font-medium flex gap-3 items-center border border-slate-200 shadow-sm animate-in fade-in zoom-in-90 group-hover:bg-slate-50 transition-all"
+                className="bg-white px-3 py-2 md:px-4 md:py-3 rounded-xl text-[10px] md:text-xs font-medium flex gap-2 md:gap-3 items-center border border-slate-200 shadow-sm animate-in fade-in zoom-in-90 group-hover:bg-slate-50 transition-all"
               >
-                <FileText size={16} className="text-indigo-500" />
-                <span className="truncate max-w-[150px] text-slate-700">
+                <FileText size={16} className="text-indigo-500 w-4 h-4" />
+                <span className="truncate max-w-[100px] md:max-w-[150px] text-slate-700">
                   {f.name}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeFile(i)}
-                  className="text-red-400 hover:text-red-600 transition-colors ml-2"
+                  className="text-red-400 hover:text-red-600 transition-colors ml-1 md:ml-2"
                 >
-                  <X size={16} />
+                  <X size={16} className="w-4 h-4" />
                 </button>
               </div>
             ))}
             {(!formData.lampiran || formData.lampiran.length === 0) && (
-              <p className="text-slate-400 text-xs italic py-1 ml-1">
+              <p className="text-slate-400 text-[10px] md:text-xs italic py-1 ml-1">
                 Belum ada file yang diunggah.
               </p>
             )}
           </div>
         </div>
 
-        <div className="pt-12 border-t border-slate-100 flex justify-end gap-6 mt-12">
+        <div className="pt-8 md:pt-12 border-t border-slate-100 flex flex-col-reverse sm:flex-row justify-end gap-3 md:gap-6 mt-8 md:mt-12">
           <button
             type="button"
             onClick={onCancel}
-            className="bg-slate-100 text-slate-600 px-10 py-4 rounded-xl font-semibold hover:bg-slate-200 transition-all text-sm"
+            className="bg-slate-100 text-slate-600 px-6 py-3 md:px-10 md:py-4 rounded-xl font-semibold hover:bg-slate-200 transition-all text-xs md:text-sm w-full sm:w-auto"
           >
             Batal
           </button>
           <button
             type="submit"
-            className={`px-12 py-4 rounded-xl font-bold text-sm flex items-center gap-3 transition-all shadow-md ${editingCase ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"} text-white`}
+            className={`px-8 py-3 md:px-12 md:py-4 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 md:gap-3 transition-all shadow-md ${editingCase ? "bg-amber-500 hover:bg-amber-600 shadow-amber-200" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"} text-white w-full sm:w-auto`}
           >
-            {editingCase ? <Edit size={18} /> : <CheckCircle2 size={18} />}{" "}
+            {editingCase ? <Edit size={18} className="w-4 h-4 md:w-5 md:h-5" /> : <CheckCircle2 size={18} className="w-4 h-4 md:w-5 md:h-5" />}{" "}
             {editingCase ? "Update Laporan" : "Simpan Laporan"}
           </button>
         </div>
@@ -1158,42 +1153,42 @@ const ReportView: React.FC<{
   };
 
   return (
-    <div className="glass-card p-6 md:p-10 animate-in fade-in duration-500">
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-6">
+    <div className="glass-card p-4 md:p-6 lg:p-10 animate-in fade-in duration-500">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4 md:gap-6">
         <div>
-          <h3 className="text-2xl font-bold text-slate-900">
+          <h3 className="text-xl md:text-2xl font-bold text-slate-900">
             Rekapitulasi Kasus
           </h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs md:text-sm text-slate-500 mt-1">
             Database lengkap penanganan bimbingan konseling siswa.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-          <div className="relative flex-1 lg:min-w-[250px]">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+          <div className="relative w-full sm:flex-1 lg:min-w-[250px]">
             <Search
               size={18}
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 md:left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 md:w-5 md:h-5"
             />
             <input
               type="text"
               placeholder="Cari Siswa/Kelas..."
-              className="w-full pl-12 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+              className="w-full pl-10 md:pl-12 pr-4 py-2 md:py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-xs md:text-sm transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <button
             onClick={handleExport}
-            className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-emerald-700 transition flex items-center gap-2 shadow-sm shadow-emerald-100"
+            className="bg-emerald-600 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-sm shadow-emerald-100 w-full sm:w-auto"
           >
-            <Download size={16} /> Excel
+            <Download size={16} className="w-4 h-4" /> Excel
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3 mb-4 md:mb-6">
         <select
-          className="bg-slate-50 px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all"
+          className="bg-slate-50 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all w-full sm:w-auto"
           value={filterKategori}
           onChange={(e) => setFilterKategori(e.target.value)}
         >
@@ -1214,7 +1209,7 @@ const ReportView: React.FC<{
           ))}
         </select>
         <select
-          className="bg-slate-50 px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all"
+          className="bg-slate-50 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all w-full sm:w-auto"
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
         >
@@ -1228,19 +1223,19 @@ const ReportView: React.FC<{
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-        <table className="w-full text-left border-collapse min-w-[1000px]">
+        <table className="w-full text-left border-collapse min-w-[800px] md:min-w-[1000px]">
           <thead>
-            <tr className="text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 bg-slate-50">
-              <th className="p-4">Tanggal</th>
-              <th className="p-4">Informasi Siswa</th>
-              <th className="p-4">Kategori</th>
-              <th className="p-4">Tindak Lanjut</th>
-              <th className="p-4 text-center">Berkas</th>
-              <th className="p-4 text-center">Status</th>
-              <th className="p-4 text-center">Aksi</th>
+            <tr className="text-[10px] md:text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 bg-slate-50">
+              <th className="p-3 md:p-4">Tanggal</th>
+              <th className="p-3 md:p-4">Informasi Siswa</th>
+              <th className="p-3 md:p-4">Kategori</th>
+              <th className="p-3 md:p-4">Tindak Lanjut</th>
+              <th className="p-3 md:p-4 text-center">Berkas</th>
+              <th className="p-3 md:p-4 text-center">Status</th>
+              <th className="p-3 md:p-4 text-center">Aksi</th>
             </tr>
           </thead>
-          <tbody className="text-sm divide-y divide-slate-100">
+          <tbody className="text-xs md:text-sm divide-y divide-slate-100">
             {filtered.length === 0 ? (
               <tr>
                 <td colSpan={7} className="p-16 text-center">
@@ -1258,54 +1253,54 @@ const ReportView: React.FC<{
                   key={k.id}
                   className="hover:bg-slate-50 transition-colors group"
                 >
-                  <td className="p-4 whitespace-nowrap text-slate-600">
+                  <td className="p-3 md:p-4 whitespace-nowrap text-slate-600">
                     {k.tanggal}
                   </td>
-                  <td className="p-4">
+                  <td className="p-3 md:p-4">
                     <div className="font-semibold text-slate-900">
                       {k.nama_siswa}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-[10px] md:text-xs text-slate-500 mt-0.5">
                       Kelas {k.kelas}
                     </div>
                   </td>
-                  <td className="p-4">
-                    <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-xs font-medium">
+                  <td className="p-3 md:p-4">
+                    <span className="bg-indigo-50 text-indigo-700 px-2 md:px-2.5 py-1 rounded-md text-[10px] md:text-xs font-medium">
                       {k.kategori_kasus}
                     </span>
                   </td>
-                  <td className="p-4">
+                  <td className="p-3 md:p-4">
                     <div
-                      className="max-w-[200px] truncate font-medium text-slate-700"
+                      className="max-w-[150px] md:max-w-[200px] truncate font-medium text-slate-700"
                       title={k.tindak_lanjut}
                     >
                       {k.tindak_lanjut}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-[10px] md:text-xs text-slate-500 mt-0.5">
                       Oleh: {k.guru_bk}
                     </div>
                   </td>
-                  <td className="p-4 text-center">
+                  <td className="p-3 md:p-4 text-center">
                     {k.lampiran.length > 0 ? (
                       <button
                         onClick={() =>
                           alert(`Total ${k.lampiran.length} file terlampir`)
                         }
-                        className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-xs font-medium hover:bg-slate-200 transition-all flex items-center gap-1.5 mx-auto"
+                        className="bg-slate-100 text-slate-600 px-2 md:px-2.5 py-1 rounded-md text-[10px] md:text-xs font-medium hover:bg-slate-200 transition-all flex items-center gap-1 md:gap-1.5 mx-auto"
                       >
-                        <FileText size={14} /> {k.lampiran.length}
+                        <FileText size={12} className="md:w-[14px] md:h-[14px]" /> {k.lampiran.length}
                       </button>
                     ) : (
                       <span className="text-slate-300">-</span>
                     )}
                   </td>
-                  <td className="p-4 text-center">
+                  <td className="p-3 md:p-4 text-center">
                     <select
                       value={k.status}
                       onChange={(e) =>
                         onStatusUpdate(k.id!, e.target.value as CaseStatus)
                       }
-                      className={`text-xs font-semibold px-2.5 py-1.5 rounded-md border-none outline-none appearance-none text-center cursor-pointer transition-colors ${
+                      className={`text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-1 md:py-1.5 rounded-md border-none outline-none appearance-none text-center cursor-pointer transition-colors ${
                         k.status === CaseStatus.BARU
                           ? "bg-blue-50 text-blue-700"
                           : k.status === CaseStatus.PROSES
@@ -1318,19 +1313,19 @@ const ReportView: React.FC<{
                       <option value={CaseStatus.SELESAI}>Selesai</option>
                     </select>
                   </td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <td className="p-3 md:p-4 text-center">
+                    <div className="flex justify-center gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onEdit(k)}
-                        className="p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors shadow-sm"
+                        className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors shadow-sm"
                       >
-                        <Edit size={16} />
+                        <Edit size={14} className="md:w-4 md:h-4" />
                       </button>
                       <button
                         onClick={() => onDelete(k.id!)}
-                        className="p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
+                        className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={14} className="md:w-4 md:h-4" />
                       </button>
                     </div>
                   </td>
