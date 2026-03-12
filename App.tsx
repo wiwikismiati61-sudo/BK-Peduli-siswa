@@ -18,6 +18,8 @@ import {
   X,
   Calendar,
   ChevronDown,
+  LogOut,
+  LogIn,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -49,7 +51,9 @@ import {
 const Navbar: React.FC<{
   currentPage: Page;
   onPageChange: (p: Page) => void;
-}> = ({ currentPage, onPageChange }) => (
+  isLoggedIn: boolean;
+  onLogout: () => void;
+}> = ({ currentPage, onPageChange, isLoggedIn, onLogout }) => (
   <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
     <div className="flex items-center gap-4">
       <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-indigo-200">
@@ -85,11 +89,27 @@ const Navbar: React.FC<{
       >
         <FileText size={18} /> <span className="hidden sm:inline">Laporan</span>
       </button>
+      {isLoggedIn ? (
+        <button
+          onClick={onLogout}
+          className="px-3 py-2 rounded-xl text-red-500 hover:bg-red-50 transition flex items-center gap-2"
+        >
+          <LogOut size={18} /> <span className="hidden sm:inline">Keluar</span>
+        </button>
+      ) : (
+        <button
+          onClick={() => onPageChange("input")}
+          className="px-3 py-2 rounded-xl text-indigo-600 hover:bg-indigo-50 transition flex items-center gap-2"
+        >
+          <LogIn size={18} /> <span className="hidden sm:inline">Login</span>
+        </button>
+      )}
     </div>
   </nav>
 );
 
 const App: React.FC = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [dbState, setDbState] = useState<DatabaseState>({
     siswa: [],
@@ -98,6 +118,8 @@ const App: React.FC = () => {
     kasus: [],
   });
   const [editingCase, setEditingCase] = useState<CaseRecord | null>(null);
+  const [loginCreds, setLoginCreds] = useState({ user: "", pass: "" });
+  const [loginError, setLoginError] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -120,6 +142,23 @@ const App: React.FC = () => {
     const guru_bk = await dbService.getAll<Teacher>("guru_bk");
     const kasus = await dbService.getAll<CaseRecord>("kasus");
     setDbState({ siswa, wali_kelas, guru_bk, kasus });
+  };
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginCreds.user === "admin" && loginCreds.pass === "admin123") {
+      setIsLoggedIn(true);
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm("Yakin ingin keluar?")) {
+      setIsLoggedIn(false);
+      setCurrentPage("dashboard");
+    }
   };
 
   const handleCaseSubmit = async (record: Omit<CaseRecord, "created_at">) => {
@@ -183,14 +222,78 @@ const App: React.FC = () => {
           }
           setCurrentPage(p);
         }}
+        isLoggedIn={isLoggedIn}
+        onLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {currentPage === "dashboard" && <DashboardView dbState={dbState} />}
-        {currentPage === "master" && (
+        
+        {currentPage !== "dashboard" && !isLoggedIn && (
+          <div className="flex items-center justify-center p-4 mt-10">
+            <div className="bg-white w-full max-w-md rounded-3xl shadow-xl p-10 border border-slate-100">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 bg-indigo-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-indigo-200">
+                  BK
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
+                  Login Admin
+                </h2>
+                <p className="text-slate-500 text-sm mt-2">
+                  Silakan login untuk mengakses menu ini
+                </p>
+              </div>
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1">
+                    Username
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="admin"
+                    value={loginCreds.user}
+                    onChange={(e) =>
+                      setLoginCreds({ ...loginCreds, user: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1">
+                    Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    placeholder="••••••••"
+                    value={loginCreds.pass}
+                    onChange={(e) =>
+                      setLoginCreds({ ...loginCreds, pass: e.target.value })
+                    }
+                  />
+                </div>
+                {loginError && (
+                  <div className="text-red-500 text-xs font-medium text-center bg-red-50 py-2 rounded-lg">
+                    Username atau Password salah!
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-semibold hover:bg-indigo-700 transition duration-200 mt-2 shadow-md shadow-indigo-200 flex items-center justify-center gap-2"
+                >
+                  <ShieldAlert size={18} /> Masuk
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {currentPage === "master" && isLoggedIn && (
           <MasterView dbState={dbState} onRefresh={refreshMemory} />
         )}
-        {currentPage === "input" && (
+        {currentPage === "input" && isLoggedIn && (
           <InputView
             dbState={dbState}
             editingCase={editingCase}
@@ -205,7 +308,7 @@ const App: React.FC = () => {
             isAiLoading={isAiLoading}
           />
         )}
-        {currentPage === "laporan" && (
+        {currentPage === "laporan" && isLoggedIn && (
           <ReportView
             dbState={dbState}
             onEdit={handleEditCase}
