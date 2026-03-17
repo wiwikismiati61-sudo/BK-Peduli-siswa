@@ -44,4 +44,4 @@ export interface DatabaseState {
   kasus: CaseRecord[];
 }
 
-export type Page = 'dashboard' | 'master' | 'input' | 'laporan';
+export type Page = 'dashboard' | 'master' | 'input' | 'laporan' | 'rekap';

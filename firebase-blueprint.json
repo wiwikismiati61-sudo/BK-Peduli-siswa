@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Student": {
+      "title": "Student",
+      "description": "Data siswa",
+      "type": "object",
+      "properties": {
+        "Nama": { "type": "string" },
+        "Kelas": { "type": "string" }
+      },
+      "required": ["Nama", "Kelas"]
+    },
+    "Teacher": {
+      "title": "Teacher",
+      "description": "Data guru atau wali kelas",
+      "type": "object",
+      "properties": {
+        "Nama": { "type": "string" }
+      },
+      "required": ["Nama"]
+    },
+    "CaseRecord": {
+      "title": "CaseRecord",
+      "description": "Data kasus bimbingan konseling",
+      "type": "object",
+      "properties": {
+        "tanggal": { "type": "string" },
+        "kategori_kasus": { "type": "string" },
+        "kelas": { "type": "string" },
+        "nama_siswa": { "type": "string" },
+        "guru_kelas": { "type": "string" },
+        "guru_bk": { "type": "string" },
+        "kronologi": { "type": "string" },
+        "tindak_lanjut": { "type": "string" },
+        "status": { "type": "string", "enum": ["Baru", "Proses", "Selesai"] },
+        "created_at": { "type": "number" },
+        "uid": { "type": "string", "description": "UID pembuat record" }
+      },
+      "required": ["tanggal", "kategori_kasus", "kelas", "nama_siswa", "status", "created_at"]
+    }
+  },
+  "firestore": {
+    "/siswa": {
+      "schema": "Student",
+      "description": "Koleksi data siswa"
+    },
+    "/wali_kelas": {
+      "schema": "Teacher",
+      "description": "Koleksi data wali kelas"
+    },
+    "/guru_bk": {
+      "schema": "Teacher",
+      "description": "Koleksi data guru BK"
+    },
+    "/kasus": {
+      "schema": "CaseRecord",
+      "description": "Koleksi data kasus"
+    }
+  }
+}

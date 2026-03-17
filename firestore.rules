@@ -1,0 +1,100 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: siswa
+// Fields:
+//   - Nama: string (required)
+//   - Kelas: string (required)
+//
+// Collection: wali_kelas
+// Fields:
+//   - Nama: string (required)
+//
+// Collection: guru_bk
+// Fields:
+//   - Nama: string (required)
+//
+// Collection: kasus
+// Fields:
+//   - tanggal: string (required)
+//   - kategori_kasus: string (required)
+//   - kelas: string (required)
+//   - nama_siswa: string (required)
+//   - guru_kelas: string
+//   - guru_bk: string
+//   - kronologi: string
+//   - tindak_lanjut: string
+//   - status: string (required, enum: Baru, Proses, Selesai)
+//   - created_at: number (required)
+//   - uid: string (UID pembuat)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "wiwikismiati61@guru.smp.belajar.id" && request.auth.token.email_verified == true));
+    }
+
+    function isValidStudent(data) {
+      return data.keys().hasAll(['Nama', 'Kelas']) &&
+             data.Nama is string && data.Nama.size() > 0 && data.Nama.size() < 100 &&
+             data.Kelas is string && data.Kelas.size() > 0 && data.Kelas.size() < 20;
+    }
+
+    function isValidTeacher(data) {
+      return data.keys().hasAll(['Nama']) &&
+             data.Nama is string && data.Nama.size() > 0 && data.Nama.size() < 100;
+    }
+
+    function isValidCase(data) {
+      return data.keys().hasAll(['tanggal', 'kategori_kasus', 'kelas', 'nama_siswa', 'status', 'created_at']) &&
+             data.tanggal is string &&
+             data.kategori_kasus is string &&
+             data.kelas is string &&
+             data.nama_siswa is string &&
+             data.status in ['Baru', 'Proses', 'Selesai'] &&
+             data.created_at is number;
+    }
+
+    // Rules
+    match /siswa/{id} {
+      allow read: if true; // Allow public read for dashboard/reports
+      allow write: if isAdmin() && isValidStudent(request.resource.data);
+    }
+
+    match /wali_kelas/{id} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidTeacher(request.resource.data);
+    }
+
+    match /guru_bk/{id} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidTeacher(request.resource.data);
+    }
+
+    match /kasus/{id} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidCase(request.resource.data);
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false; // Roles managed manually or by system
+    }
+    
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Component } from "react";
 import {
   LayoutDashboard,
   Database,
@@ -20,6 +20,8 @@ import {
   ChevronDown,
   LogOut,
   LogIn,
+  FileSpreadsheet,
+  AlertCircle,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import {
@@ -38,6 +40,24 @@ import {
 import { dbService } from "./db";
 import { analyzeCase } from "./services/geminiService";
 import {
+  auth,
+  db,
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  signInWithPopup,
+  signOut,
+  googleProvider,
+  OperationType,
+  handleFirestoreError,
+  writeBatch
+} from "./firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import {
   Page,
   CaseRecord,
   CaseStatus,
@@ -46,6 +66,43 @@ import {
   DatabaseState,
   Attachment,
 } from "./types";
+
+class ErrorBoundary extends Component<any, any> {
+  state = { hasError: false, error: null };
+
+  constructor(props: any) {
+    super(props);
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+          <div className="bg-white p-8 rounded-3xl shadow-xl max-w-lg w-full border border-slate-100">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Terjadi Kesalahan</h2>
+            <p className="text-slate-600 mb-6">
+              Aplikasi mengalami kendala teknis. Silakan muat ulang halaman atau hubungi admin.
+            </p>
+            <div className="bg-slate-50 p-4 rounded-xl text-xs font-mono text-slate-500 overflow-auto max-h-40 mb-6">
+              {(this.state.error as any)?.message}
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 transition"
+            >
+              Muat Ulang Halaman
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (this as any).props.children;
+  }
+}
 
 // Components
 const Navbar: React.FC<{
@@ -89,6 +146,12 @@ const Navbar: React.FC<{
       >
         <FileText size={18} /> <span className="hidden sm:inline">Laporan</span>
       </button>
+      <button
+        onClick={() => onPageChange("rekap")}
+        className={`px-3 py-2 rounded-xl transition flex items-center gap-2 ${currentPage === "rekap" ? "bg-slate-100 text-indigo-600" : "hover:bg-slate-50 text-slate-600"}`}
+      >
+        <Activity size={18} /> <span className="hidden sm:inline">Rekap</span>
+      </button>
       {isLoggedIn ? (
         <button
           onClick={onLogout}
@@ -109,7 +172,16 @@ const Navbar: React.FC<{
 );
 
 const App: React.FC = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>("dashboard");
   const [dbState, setDbState] = useState<DatabaseState>({
     siswa: [],
@@ -118,65 +190,131 @@ const App: React.FC = () => {
     kasus: [],
   });
   const [editingCase, setEditingCase] = useState<CaseRecord | null>(null);
-  const [loginCreds, setLoginCreds] = useState({ user: "", pass: "" });
   const [loginError, setLoginError] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isRestoring, setIsRestoring] = useState(false);
 
-  // Initialize data
-  useEffect(() => {
-    const loadData = async () => {
-      await dbService.init();
-      const siswa = await dbService.getAll<Student>("siswa");
-      const wali_kelas = await dbService.getAll<Teacher>("wali_kelas");
-      const guru_bk = await dbService.getAll<Teacher>("guru_bk");
-      const kasus = await dbService.getAll<CaseRecord>("kasus");
-      setDbState({ siswa, wali_kelas, guru_bk, kasus });
-    };
-    loadData();
-  }, []);
+  // Utility to compress image
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
 
-  const refreshMemory = async () => {
-    const siswa = await dbService.getAll<Student>("siswa");
-    const wali_kelas = await dbService.getAll<Teacher>("wali_kelas");
-    const guru_bk = await dbService.getAll<Teacher>("guru_bk");
-    const kasus = await dbService.getAll<CaseRecord>("kasus");
-    setDbState({ siswa, wali_kelas, guru_bk, kasus });
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+    });
   };
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loginCreds.user === "admin" && loginCreds.pass === "admin123") {
-      setIsLoggedIn(true);
+  // Initialize data and auth
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      if (u && u.email === "wiwikismiati61@guru.smp.belajar.id") {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+
+    const unsubSiswa = onSnapshot(collection(db, "siswa"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setDbState(prev => ({ ...prev, siswa: data }));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "siswa"));
+
+    const unsubWali = onSnapshot(collection(db, "wali_kelas"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setDbState(prev => ({ ...prev, wali_kelas: data }));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "wali_kelas"));
+
+    const unsubBK = onSnapshot(collection(db, "guru_bk"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setDbState(prev => ({ ...prev, guru_bk: data }));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "guru_bk"));
+
+    const unsubKasus = onSnapshot(query(collection(db, "kasus"), orderBy("created_at", "desc")), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setDbState(prev => ({ ...prev, kasus: data }));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "kasus"));
+
+    return () => {
+      unsubAuth();
+      unsubSiswa();
+      unsubWali();
+      unsubBK();
+      unsubKasus();
+    };
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
       setLoginError(false);
-    } else {
+    } catch (error) {
+      console.error("Login error:", error);
       setLoginError(true);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (confirm("Yakin ingin keluar?")) {
-      setIsLoggedIn(false);
+      await signOut(auth);
       setCurrentPage("dashboard");
     }
   };
 
   const handleCaseSubmit = async (record: Omit<CaseRecord, "created_at">) => {
+    const id = editingCase?.id ? String(editingCase.id) : `case_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const newRecord = {
       ...record,
       created_at: editingCase ? editingCase.created_at : Date.now(),
+      uid: user?.uid || "anonymous"
     };
-    await dbService.put("kasus", newRecord);
-    await refreshMemory();
-    setEditingCase(null);
-    setCurrentPage("laporan");
-    alert("Data berhasil disimpan!");
+
+    // Check size
+    const size = JSON.stringify(newRecord).length;
+    if (size > 1000000) {
+      alert("Gagal menyimpan: Ukuran data (termasuk lampiran) melebihi batas 1MB. Silakan kurangi jumlah atau ukuran lampiran.");
+      return;
+    }
+
+    try {
+      await setDoc(doc(db, "kasus", id), newRecord);
+      setEditingCase(null);
+      setCurrentPage("laporan");
+      alert("Data berhasil disimpan!");
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, `kasus/${id}`);
+    }
   };
 
-  const handleDeleteCase = async (id: number) => {
+  const handleDeleteCase = async (id: string | number) => {
     if (confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-      await dbService.delete("kasus", id);
-      await refreshMemory();
+      try {
+        await deleteDoc(doc(db, "kasus", String(id)));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `kasus/${id}`);
+      }
     }
   };
 
@@ -185,11 +323,14 @@ const App: React.FC = () => {
     setCurrentPage("input");
   };
 
-  const handleStatusUpdate = async (id: number, status: CaseStatus) => {
+  const handleStatusUpdate = async (id: string | number, status: CaseStatus) => {
     const item = dbState.kasus.find((k) => k.id === id);
     if (item) {
-      await dbService.put("kasus", { ...item, status });
-      await refreshMemory();
+      try {
+        await setDoc(doc(db, "kasus", String(id)), { ...item, status });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `kasus/${id}`);
+      }
     }
   };
 
@@ -222,14 +363,14 @@ const App: React.FC = () => {
           }
           setCurrentPage(p);
         }}
-        isLoggedIn={isLoggedIn}
+        isLoggedIn={!!user}
         onLogout={handleLogout}
       />
 
       <main className="max-w-7xl mx-auto p-4 md:p-8">
         {currentPage === "dashboard" && <DashboardView dbState={dbState} />}
         
-        {currentPage !== "dashboard" && !isLoggedIn && (
+        {(currentPage === "master" || currentPage === "input") && !isAdmin && (
           <div className="flex items-center justify-center p-4 mt-10">
             <div className="bg-white w-full max-w-md rounded-3xl shadow-xl p-10 border border-slate-100">
               <div className="text-center mb-8">
@@ -240,60 +381,30 @@ const App: React.FC = () => {
                   Login Admin
                 </h2>
                 <p className="text-slate-500 text-sm mt-2">
-                  Silakan login untuk mengakses menu ini
+                  Silakan login dengan akun Google Admin
                 </p>
               </div>
-              <form onSubmit={handleLogin} className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1">
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    placeholder="admin"
-                    value={loginCreds.user}
-                    onChange={(e) =>
-                      setLoginCreds({ ...loginCreds, user: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold uppercase text-slate-500 ml-1">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
-                    placeholder="••••••••"
-                    value={loginCreds.pass}
-                    onChange={(e) =>
-                      setLoginCreds({ ...loginCreds, pass: e.target.value })
-                    }
-                  />
-                </div>
+              <div className="space-y-5">
                 {loginError && (
                   <div className="text-red-500 text-xs font-medium text-center bg-red-50 py-2 rounded-lg">
-                    Username atau Password salah!
+                    Gagal login atau Anda bukan Admin.
                   </div>
                 )}
                 <button
-                  type="submit"
+                  onClick={handleLogin}
                   className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-semibold hover:bg-indigo-700 transition duration-200 mt-2 shadow-md shadow-indigo-200 flex items-center justify-center gap-2"
                 >
-                  <ShieldAlert size={18} /> Masuk
+                  <ShieldAlert size={18} /> Masuk dengan Google
                 </button>
-              </form>
+              </div>
             </div>
           </div>
         )}
 
-        {currentPage === "master" && isLoggedIn && (
-          <MasterView dbState={dbState} onRefresh={refreshMemory} />
+        {currentPage === "master" && isAdmin && (
+          <MasterView dbState={dbState} onRefresh={() => {}} isRestoring={isRestoring} setIsRestoring={setIsRestoring} />
         )}
-        {currentPage === "input" && isLoggedIn && (
+        {currentPage === "input" && isAdmin && (
           <InputView
             dbState={dbState}
             editingCase={editingCase}
@@ -306,15 +417,20 @@ const App: React.FC = () => {
             onClearAiAnalysis={() => setAiAnalysis(null)}
             aiAnalysis={aiAnalysis}
             isAiLoading={isAiLoading}
+            compressImage={compressImage}
           />
         )}
-        {currentPage === "laporan" && isLoggedIn && (
+        {currentPage === "laporan" && (
           <ReportView
             dbState={dbState}
+            isLoggedIn={isAdmin}
             onEdit={handleEditCase}
             onDelete={handleDeleteCase}
             onStatusUpdate={handleStatusUpdate}
           />
+        )}
+        {currentPage === "rekap" && (
+          <RekapView dbState={dbState} />
         )}
       </main>
     </div>
@@ -323,8 +439,13 @@ const App: React.FC = () => {
 
 // Sub-Views
 const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
+  const [filterNama, setFilterNama] = useState("");
+  const [filterKelas, setFilterKelas] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+
   const stats = useMemo(
     () => ({
+      total: dbState.kasus.length,
       baru: dbState.kasus.filter((k) => k.status === CaseStatus.BARU).length,
       proses: dbState.kasus.filter((k) => k.status === CaseStatus.PROSES)
         .length,
@@ -333,6 +454,38 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
     }),
     [dbState.kasus],
   );
+
+  const filteredKasus = useMemo(() => {
+    return dbState.kasus.filter((k) => {
+      const matchNama = k.nama_siswa
+        .toLowerCase()
+        .includes(filterNama.toLowerCase());
+      const matchKelas = k.kelas
+        .toLowerCase()
+        .includes(filterKelas.toLowerCase());
+      const matchStatus = filterStatus ? k.status === filterStatus : true;
+      return matchNama && matchKelas && matchStatus;
+    });
+  }, [dbState.kasus, filterNama, filterKelas, filterStatus]);
+
+  const groupedData = useMemo(() => {
+    const groups: Record<string, any> = {};
+    filteredKasus.forEach((k) => {
+      if (!groups[k.nama_siswa]) groups[k.nama_siswa] = {};
+      if (!groups[k.nama_siswa][k.kelas]) groups[k.nama_siswa][k.kelas] = {};
+      if (!groups[k.nama_siswa][k.kelas][k.status])
+        groups[k.nama_siswa][k.kelas][k.status] = {};
+      if (!groups[k.nama_siswa][k.kelas][k.status][k.kategori_kasus])
+        groups[k.nama_siswa][k.kelas][k.status][k.kategori_kasus] = [];
+
+      groups[k.nama_siswa][k.kelas][k.status][k.kategori_kasus].push({
+        kronologi: k.kronologi,
+        tindak_lanjut: k.tindak_lanjut,
+        tanggal: k.tanggal,
+      });
+    });
+    return groups;
+  }, [filteredKasus]);
 
   const chartData = [
     { name: "Baru", count: stats.baru, color: "#3b82f6" },
@@ -359,7 +512,20 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="glass-card p-5 md:p-6 flex justify-between items-center group hover:shadow-md transition-all">
+          <div>
+            <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              Total Kasus
+            </p>
+            <h2 className="text-3xl md:text-4xl font-light mt-1 md:mt-2 text-slate-800">
+              {stats.total}
+            </h2>
+          </div>
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-slate-50 flex items-center justify-center text-slate-500">
+            <Database size={20} className="md:w-6 md:h-6" />
+          </div>
+        </div>
         <div className="glass-card p-5 md:p-6 flex justify-between items-center group hover:shadow-md transition-all">
           <div>
             <p className="text-[10px] md:text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -484,6 +650,132 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
           </div>
         </div>
       </div>
+
+      <div className="glass-card p-5 md:p-8">
+        <h3 className="text-lg font-bold text-slate-900 mb-6">
+          Report Tindak Lanjut Siswa Bermasalah
+        </h3>
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              placeholder="Cari Nama Siswa..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+              value={filterNama}
+              onChange={(e) => setFilterNama(e.target.value)}
+            />
+          </div>
+          <div className="relative w-full sm:w-48">
+            <input
+              type="text"
+              placeholder="Filter Kelas..."
+              className="w-full px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+              value={filterKelas}
+              onChange={(e) => setFilterKelas(e.target.value)}
+            />
+          </div>
+          <select
+            className="bg-slate-50 px-4 py-2.5 rounded-xl text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all w-full sm:w-48"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <option value="">Semua Status</option>
+            {[CaseStatus.BARU, CaseStatus.PROSES, CaseStatus.SELESAI].map(
+              (s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ),
+            )}
+          </select>
+        </div>
+
+        <div className="border border-slate-200 rounded-2xl overflow-hidden">
+          <div className="bg-[#86a361] text-white p-3 font-bold text-sm">
+            Kasus Siswa
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[400px] overflow-y-auto">
+            {Object.keys(groupedData).length === 0 ? (
+              <div className="p-10 text-center text-slate-400 italic text-sm">
+                Tidak ada data ditemukan
+              </div>
+            ) : (
+              Object.entries(groupedData).map(([nama, kelasGroup]) => (
+                <div key={nama} className="bg-white">
+                  <div className="bg-[#c5d9a8] p-2 pl-4 text-white font-bold text-sm flex items-center gap-2">
+                    <span className="w-4 h-4 border border-white/50 flex items-center justify-center text-[10px] leading-none">
+                      -
+                    </span>
+                    {nama}
+                  </div>
+                  {Object.entries(kelasGroup).map(([kelas, statusGroup]) => (
+                    <div key={kelas}>
+                      <div className="bg-[#e2efd9] p-2 pl-8 text-slate-800 font-bold text-xs flex items-center gap-2">
+                        <span className="w-3.5 h-3.5 border border-slate-400 flex items-center justify-center text-[8px] leading-none">
+                          -
+                        </span>
+                        {kelas}
+                      </div>
+                      {Object.entries(statusGroup).map(
+                        ([status, kategoriGroup]) => (
+                          <div key={status}>
+                            <div className="p-2 pl-12 text-slate-700 font-bold text-xs flex items-center gap-2">
+                              <span className="w-3 h-3 border border-slate-400 flex items-center justify-center text-[8px] leading-none">
+                                -
+                              </span>
+                              {status}
+                            </div>
+                            {Object.entries(kategoriGroup).map(
+                              ([kategori, items]) => (
+                                <div key={kategori}>
+                                  <div className="p-2 pl-16 text-slate-600 font-bold text-xs flex items-center gap-2">
+                                    <span className="w-3 h-3 border border-slate-400 flex items-center justify-center text-[8px] leading-none">
+                                      -
+                                    </span>
+                                    {kategori}
+                                  </div>
+                                  {(items as any[]).map((item, idx) => (
+                                    <div key={idx} className="space-y-0">
+                                      <div className="p-2 pl-20 text-slate-600 text-xs flex items-start gap-2">
+                                        <span className="w-3 h-3 mt-0.5 border border-slate-400 flex items-center justify-center text-[8px] leading-none shrink-0">
+                                          -
+                                        </span>
+                                        <span className="italic">
+                                          {item.kronologi}
+                                        </span>
+                                      </div>
+                                      <div className="p-2 pl-24 text-slate-600 text-xs flex items-start gap-2">
+                                        <span className="w-3 h-3 mt-0.5 border border-slate-400 flex items-center justify-center text-[8px] leading-none shrink-0">
+                                          -
+                                        </span>
+                                        <span className="font-medium">
+                                          {item.tindak_lanjut}
+                                        </span>
+                                      </div>
+                                      <div className="p-2 pl-28 text-slate-500 text-[10px] font-mono">
+                                        {item.tanggal}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ),
+                            )}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -491,37 +783,82 @@ const DashboardView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
 const MasterView: React.FC<{
   dbState: DatabaseState;
   onRefresh: () => void;
-}> = ({ dbState, onRefresh }) => {
+  isRestoring: boolean;
+  setIsRestoring: (v: boolean) => void;
+}> = ({ dbState, onRefresh, isRestoring, setIsRestoring }) => {
+  const [restorePreview, setRestorePreview] = useState<{
+    counts: { siswa: number; wali_kelas: number; guru_bk: number; kasus: number };
+    total: number;
+    data: DatabaseState;
+  } | null>(null);
+  const [importPreview, setImportPreview] = useState<{
+    counts: { siswa: number; wali_kelas: number; guru_bk: number };
+    total: number;
+    wb: any;
+  } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
   const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (evt) => {
+    reader.onload = (evt) => {
       const bstr = evt.target?.result;
       const wb = XLSX.read(bstr, { type: "binary" });
-
-      const sheets = {
-        Siswa: "siswa",
-        WaliKelas: "wali_kelas",
-        GuruBK: "guru_bk",
+      
+      const counts = {
+        siswa: wb.Sheets["Siswa"] ? XLSX.utils.sheet_to_json(wb.Sheets["Siswa"]).length : 0,
+        wali_kelas: wb.Sheets["WaliKelas"] ? XLSX.utils.sheet_to_json(wb.Sheets["WaliKelas"]).length : 0,
+        guru_bk: wb.Sheets["GuruBK"] ? XLSX.utils.sheet_to_json(wb.Sheets["GuruBK"]).length : 0,
       };
+      const total = counts.siswa + counts.wali_kelas + counts.guru_bk;
 
+      setImportPreview({ counts, total, wb });
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const executeImport = async () => {
+    if (!importPreview) return;
+    const { wb } = importPreview;
+    setImportPreview(null);
+    setIsRestoring(true);
+
+    const sheets = {
+      Siswa: "siswa",
+      WaliKelas: "wali_kelas",
+      GuruBK: "guru_bk",
+    };
+
+    try {
       for (const [sheetName, storeName] of Object.entries(sheets)) {
         const ws = wb.Sheets[sheetName];
         if (ws) {
           const data = XLSX.utils.sheet_to_json(ws);
-          await dbService.clear(storeName);
+          let batch = writeBatch(db);
+          let count = 0;
+          
           for (const item of data as any[]) {
-            await dbService.put(storeName, item);
+            const id = `master_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            batch.set(doc(db, storeName, id), item);
+            count++;
+            
+            if (count === 500) {
+              await batch.commit();
+              batch = writeBatch(db);
+              count = 0;
+            }
           }
+          if (count > 0) await batch.commit();
         }
       }
-
-      onRefresh();
-      alert("Data Master berhasil diimpor!");
-    };
-    reader.readAsBinaryString(file);
+      setStatusMsg({ type: 'success', text: "Data Master berhasil diimpor!" });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "master_import");
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   const handleBackup = () => {
@@ -540,28 +877,219 @@ const MasterView: React.FC<{
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (evt) => {
+    reader.onload = (evt) => {
       try {
         const data: DatabaseState = JSON.parse(evt.target?.result as string);
-        const stores = ["siswa", "wali_kelas", "guru_bk", "kasus"];
-        for (const store of stores) {
-          await dbService.clear(store);
-          const items = (data as any)[store] || [];
-          for (const item of items as any[]) {
-            await dbService.put(store, item);
-          }
-        }
-        onRefresh();
-        alert("Database berhasil direstore!");
+        
+        const counts = {
+          siswa: (data.siswa || []).length,
+          wali_kelas: (data.wali_kelas || []).length,
+          guru_bk: (data.guru_bk || []).length,
+          kasus: (data.kasus || []).length
+        };
+        const total = counts.siswa + counts.wali_kelas + counts.guru_bk + counts.kasus;
+
+        setRestorePreview({ counts, total, data });
       } catch (err) {
-        alert("File backup tidak valid!");
+        setStatusMsg({ type: 'error', text: "Gagal membaca file backup. Pastikan format file benar." });
       }
     };
     reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const executeRestore = async () => {
+    if (!restorePreview) return;
+    const { data } = restorePreview;
+    setRestorePreview(null);
+    setIsRestoring(true);
+
+    try {
+      const stores = ["siswa", "wali_kelas", "guru_bk", "kasus"];
+      let skippedAttachments = 0;
+      let totalRestored = 0;
+
+      for (const store of stores) {
+        const items = (data as any)[store] || [];
+        let batch = writeBatch(db);
+        let count = 0;
+
+        for (const item of items as any[]) {
+          const id = item.id ? String(item.id) : `restored_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          const size = JSON.stringify(item).length;
+          if (size > 1000000) {
+            if (item.lampiran && item.lampiran.length > 0) {
+              item.lampiran = [];
+              skippedAttachments++;
+            }
+          }
+          
+          batch.set(doc(db, store, id), item);
+          count++;
+          totalRestored++;
+
+          if (count === 500) {
+            await batch.commit();
+            batch = writeBatch(db);
+            count = 0;
+          }
+        }
+        if (count > 0) await batch.commit();
+      }
+      
+      let msg = `Database berhasil direstore (${totalRestored} dokumen)!`;
+      if (skippedAttachments > 0) {
+        msg += `\n\nCatatan: ${skippedAttachments} dokumen memiliki lampiran yang terlalu besar dan telah dikosongkan.`;
+      }
+      setStatusMsg({ type: 'success', text: msg });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, "restore");
+    } finally {
+      setIsRestoring(false);
+    }
   };
 
   return (
-    <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+    <div className="relative">
+      {/* Loading Overlay */}
+      {isRestoring && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+          <h3 className="text-xl font-bold text-white mb-2">Sedang Memproses Data...</h3>
+          <p className="text-slate-300 text-sm max-w-xs">Mohon tunggu sebentar, sistem sedang melakukan sinkronisasi dengan database.</p>
+        </div>
+      )}
+
+      {/* Restore Preview Modal */}
+      {restorePreview && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-6 md:p-8">
+              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <Database size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Konfirmasi Restore</h3>
+              <p className="text-slate-500 text-center text-sm mb-6">File backup terdeteksi dengan rincian berikut:</p>
+              
+              <div className="bg-slate-50 rounded-2xl p-4 mb-6 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Data Siswa</span>
+                  <span className="font-bold text-slate-800">{restorePreview.counts.siswa}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Data Wali Kelas</span>
+                  <span className="font-bold text-slate-800">{restorePreview.counts.wali_kelas}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Data Guru BK</span>
+                  <span className="font-bold text-slate-800">{restorePreview.counts.guru_bk}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Data Kasus</span>
+                  <span className="font-bold text-slate-800">{restorePreview.counts.kasus}</span>
+                </div>
+                <div className="pt-2 mt-2 border-t border-slate-200 flex justify-between font-bold text-indigo-600">
+                  <span>Total Data</span>
+                  <span>{restorePreview.total}</span>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-100 mb-6 italic">
+                * Data dengan ID yang sama akan diperbarui. Proses ini tidak dapat dibatalkan.
+              </p>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setRestorePreview(null)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={executeRestore}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-100"
+                >
+                  Lanjutkan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Preview Modal */}
+      {importPreview && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-6 md:p-8">
+              <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 mx-auto">
+                <FileSpreadsheet size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Konfirmasi Import Excel</h3>
+              <p className="text-slate-500 text-center text-sm mb-6">Data master terdeteksi dalam file:</p>
+              
+              <div className="bg-slate-50 rounded-2xl p-4 mb-6 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Siswa</span>
+                  <span className="font-bold text-slate-800">{importPreview.counts.siswa}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Wali Kelas</span>
+                  <span className="font-bold text-slate-800">{importPreview.counts.wali_kelas}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Guru BK</span>
+                  <span className="font-bold text-slate-800">{importPreview.counts.guru_bk}</span>
+                </div>
+                <div className="pt-2 mt-2 border-t border-slate-200 flex justify-between font-bold text-emerald-600">
+                  <span>Total Data Master</span>
+                  <span>{importPreview.total}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setImportPreview(null)}
+                  className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold hover:bg-slate-200 transition-colors"
+                >
+                  Batal
+                </button>
+                <button 
+                  onClick={executeImport}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-100"
+                >
+                  Impor Sekarang
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Message Modal */}
+      {statusMsg && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-6 md:p-8 text-center">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 mx-auto ${statusMsg.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+                {statusMsg.type === 'success' ? <CheckCircle2 size={32} /> : <AlertCircle size={32} />}
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">
+                {statusMsg.type === 'success' ? 'Berhasil!' : 'Terjadi Kesalahan'}
+              </h3>
+              <p className="text-slate-500 text-sm mb-8 whitespace-pre-wrap">{statusMsg.text}</p>
+              <button 
+                onClick={() => setStatusMsg(null)}
+                className={`w-full py-3 rounded-xl font-bold text-white transition-colors ${statusMsg.type === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
         <div className="glass-card p-5 md:p-8">
           <h3 className="text-base md:text-lg font-semibold text-slate-800 mb-2 flex items-center gap-2">
@@ -640,6 +1168,7 @@ const MasterView: React.FC<{
         </div>
       </div>
     </div>
+  </div>
   );
 };
 
@@ -652,6 +1181,7 @@ const InputView: React.FC<{
   onClearAiAnalysis: () => void;
   aiAnalysis: any;
   isAiLoading: boolean;
+  compressImage: (base64: string) => Promise<string>;
 }> = ({
   dbState,
   editingCase,
@@ -661,6 +1191,7 @@ const InputView: React.FC<{
   onClearAiAnalysis,
   aiAnalysis,
   isAiLoading,
+  compressImage,
 }) => {
   const [formData, setFormData] = useState<Partial<CaseRecord>>({
     tanggal: new Date().toISOString().split("T")[0],
@@ -705,7 +1236,18 @@ const InputView: React.FC<{
     const files = Array.from(e.target.files || []);
     files.forEach((f: any) => {
       const reader = new FileReader();
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
+        let data = ev.target?.result as string;
+        
+        // Compress if it's an image
+        if (f.type.startsWith("image/")) {
+          try {
+            data = await compressImage(data);
+          } catch (err) {
+            console.error("Compression failed", err);
+          }
+        }
+
         setFormData((prev) => ({
           ...prev,
           lampiran: [
@@ -713,7 +1255,7 @@ const InputView: React.FC<{
             {
               name: f.name,
               type: f.type,
-              data: ev.target?.result as string,
+              data: data,
             },
           ],
         }));
@@ -1124,10 +1666,11 @@ const InputView: React.FC<{
 
 const ReportView: React.FC<{
   dbState: DatabaseState;
+  isLoggedIn: boolean;
   onEdit: (r: CaseRecord) => void;
-  onDelete: (id: number) => void;
-  onStatusUpdate: (id: number, s: CaseStatus) => void;
-}> = ({ dbState, onEdit, onDelete, onStatusUpdate }) => {
+  onDelete: (id: string | number) => void;
+  onStatusUpdate: (id: string | number, s: CaseStatus) => void;
+}> = ({ dbState, isLoggedIn, onEdit, onDelete, onStatusUpdate }) => {
   const [search, setSearch] = useState("");
   const [filterKategori, setFilterKategori] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -1240,13 +1783,13 @@ const ReportView: React.FC<{
               <th className="p-3 md:p-4">Tindak Lanjut</th>
               <th className="p-3 md:p-4 text-center">Berkas</th>
               <th className="p-3 md:p-4 text-center">Status</th>
-              <th className="p-3 md:p-4 text-center">Aksi</th>
+              {isLoggedIn && <th className="p-3 md:p-4 text-center">Aksi</th>}
             </tr>
           </thead>
           <tbody className="text-xs md:text-sm divide-y divide-slate-100">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="p-16 text-center">
+                <td colSpan={isLoggedIn ? 7 : 6} className="p-16 text-center">
                   <div className="flex flex-col items-center opacity-40 grayscale">
                     <Database size={48} className="mb-3 text-slate-400" />
                     <p className="text-slate-500 font-medium text-sm">
@@ -1305,10 +1848,11 @@ const ReportView: React.FC<{
                   <td className="p-3 md:p-4 text-center">
                     <select
                       value={k.status}
+                      disabled={!isLoggedIn}
                       onChange={(e) =>
                         onStatusUpdate(k.id!, e.target.value as CaseStatus)
                       }
-                      className={`text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-1 md:py-1.5 rounded-md border-none outline-none appearance-none text-center cursor-pointer transition-colors ${
+                      className={`text-[10px] md:text-xs font-semibold px-2 md:px-2.5 py-1 md:py-1.5 rounded-md border-none outline-none appearance-none text-center transition-colors ${!isLoggedIn ? "cursor-default" : "cursor-pointer"} ${
                         k.status === CaseStatus.BARU
                           ? "bg-blue-50 text-blue-700"
                           : k.status === CaseStatus.PROSES
@@ -1321,24 +1865,165 @@ const ReportView: React.FC<{
                       <option value={CaseStatus.SELESAI}>Selesai</option>
                     </select>
                   </td>
-                  <td className="p-3 md:p-4 text-center">
-                    <div className="flex justify-center gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => onEdit(k)}
-                        className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors shadow-sm"
-                      >
-                        <Edit size={14} className="md:w-4 md:h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDelete(k.id!)}
-                        className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
-                      >
-                        <Trash2 size={14} className="md:w-4 md:h-4" />
-                      </button>
-                    </div>
-                  </td>
+                  {isLoggedIn && (
+                    <td className="p-3 md:p-4 text-center">
+                      <div className="flex justify-center gap-1 md:gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => onEdit(k)}
+                          className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-amber-50 hover:text-amber-600 hover:border-amber-200 transition-colors shadow-sm"
+                        >
+                          <Edit size={14} className="md:w-4 md:h-4" />
+                        </button>
+                        <button
+                          onClick={() => onDelete(k.id!)}
+                          className="p-1 md:p-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors shadow-sm"
+                        >
+                          <Trash2 size={14} className="md:w-4 md:h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const RekapView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
+  const [filterNama, setFilterNama] = useState("");
+  const [filterKategori, setFilterKategori] = useState("");
+
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    dbState.kasus.forEach((k) => cats.add(k.kategori_kasus));
+    return Array.from(cats).sort();
+  }, [dbState.kasus]);
+
+  const pivotData = useMemo(() => {
+    const data: Record<string, Record<string, number>> = {};
+    const filteredKasus = dbState.kasus.filter((k) => {
+      const matchNama = k.nama_siswa.toLowerCase().includes(filterNama.toLowerCase());
+      const matchKategori = filterKategori ? k.kategori_kasus === filterKategori : true;
+      return matchNama && matchKategori;
+    });
+
+    filteredKasus.forEach((k) => {
+      if (!data[k.nama_siswa]) data[k.nama_siswa] = {};
+      data[k.nama_siswa][k.kategori_kasus] = (data[k.nama_siswa][k.kategori_kasus] || 0) + 1;
+    });
+
+    return data;
+  }, [dbState.kasus, filterNama, filterKategori]);
+
+  const students = useMemo(() => Object.keys(pivotData).sort(), [pivotData]);
+
+  const handleExport = () => {
+    if (students.length === 0) return alert("Tidak ada data untuk diekspor");
+    const exportData = students.map((s) => {
+      const row: any = { "Nama Siswa": s };
+      categories.forEach((c) => {
+        row[c] = pivotData[s][c] || 0;
+      });
+      row["Total Panggilan"] = (Object.values(pivotData[s]) as number[]).reduce((a: number, b: number) => a + b, 0);
+      return row;
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Rekap_Penanganan");
+    XLSX.writeFile(wb, `Rekap_Penanganan_Siswa_${new Date().toISOString().split("T")[0]}.xlsx`);
+  };
+
+  return (
+    <div className="glass-card p-4 md:p-6 lg:p-10 animate-in fade-in duration-500">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 md:mb-8 gap-4 md:gap-6">
+        <div>
+          <h3 className="text-xl md:text-2xl font-bold text-slate-900">
+            Rekap Penanganan Siswa
+          </h3>
+          <p className="text-xs md:text-sm text-slate-500 mt-1">
+            Jumlah Panggilan Orang Tua per Siswa dan Kategori Kasus.
+          </p>
+        </div>
+        <button
+          onClick={handleExport}
+          className="bg-emerald-600 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-sm shadow-emerald-100 w-full lg:w-auto"
+        >
+          <Download size={16} className="w-4 h-4" /> Excel
+        </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3 mb-6">
+        <div className="relative w-full sm:w-64">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Filter Nama Siswa..."
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm transition-all"
+            value={filterNama}
+            onChange={(e) => setFilterNama(e.target.value)}
+          />
+        </div>
+        <select
+          className="bg-slate-50 px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 outline-none text-slate-700 focus:ring-2 focus:ring-indigo-500 transition-all w-full sm:w-auto"
+          value={filterKategori}
+          onChange={(e) => setFilterKategori(e.target.value)}
+        >
+          <option value="">Semua Kategori</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <table className="w-full text-left border-collapse min-w-[600px]">
+          <thead>
+            <tr className="text-[10px] md:text-xs uppercase font-semibold text-slate-500 border-b border-slate-200 bg-slate-50">
+              <th className="p-4 sticky left-0 bg-slate-50 z-10">Nama Siswa</th>
+              {categories.map((c) => (
+                <th key={c} className="p-4 text-center">{c}</th>
+              ))}
+              <th className="p-4 text-center bg-indigo-50 text-indigo-700">Total</th>
+            </tr>
+          </thead>
+          <tbody className="text-xs md:text-sm divide-y divide-slate-100">
+            {students.length === 0 ? (
+              <tr>
+                <td colSpan={categories.length + 2} className="p-16 text-center">
+                  <div className="flex flex-col items-center opacity-40 grayscale">
+                    <Activity size={48} className="mb-3 text-slate-400" />
+                    <p className="text-slate-500 font-medium text-sm">
+                      Tidak ada data panggilan orang tua ditemukan
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              students.map((s) => {
+                const total = (Object.values(pivotData[s]) as number[]).reduce((a: number, b: number) => a + b, 0);
+                return (
+                  <tr key={s} className="hover:bg-slate-50 transition-colors">
+                    <td className="p-4 font-semibold text-slate-900 sticky left-0 bg-white group-hover:bg-slate-50 z-10 border-r border-slate-100">
+                      {s}
+                    </td>
+                    {categories.map((c) => (
+                      <td key={c} className="p-4 text-center text-slate-600">
+                        {pivotData[s][c] || 0}
+                      </td>
+                    ))}
+                    <td className="p-4 text-center font-bold text-indigo-600 bg-indigo-50/30">
+                      {total}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
