@@ -190,7 +190,8 @@ const AppContent: React.FC = () => {
     kasus: [],
   });
   const [editingCase, setEditingCase] = useState<CaseRecord | null>(null);
-  const [loginError, setLoginError] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [aiAnalysis, setAiAnalysis] = useState<any>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -235,6 +236,7 @@ const AppContent: React.FC = () => {
       } else {
         setIsAdmin(false);
       }
+      setIsAuthLoading(false);
     });
 
     const unsubSiswa = onSnapshot(collection(db, "siswa"), (snapshot) => {
@@ -268,11 +270,15 @@ const AppContent: React.FC = () => {
 
   const handleLogin = async () => {
     try {
+      setLoginError(null);
       await signInWithPopup(auth, googleProvider);
-      setLoginError(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
-      setLoginError(true);
+      if (error.code === 'auth/unauthorized-domain') {
+        setLoginError("Domain ini belum terdaftar di Authorized Domains Firebase Console.");
+      } else {
+        setLoginError(error.message || "Gagal login.");
+      }
     }
   };
 
@@ -353,6 +359,17 @@ const AppContent: React.FC = () => {
   };
 
   // Views
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
+          <p className="text-slate-500 font-medium">Memuat sistem...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen pb-20">
       <Navbar
@@ -386,8 +403,13 @@ const AppContent: React.FC = () => {
               </div>
               <div className="space-y-5">
                 {loginError && (
-                  <div className="text-red-500 text-xs font-medium text-center bg-red-50 py-2 rounded-lg">
-                    Gagal login atau Anda bukan Admin.
+                  <div className="text-red-500 text-xs font-medium text-center bg-red-50 p-3 rounded-lg border border-red-100">
+                    {loginError}
+                  </div>
+                )}
+                {user && !isAdmin && (
+                  <div className="text-amber-600 text-xs font-medium text-center bg-amber-50 p-3 rounded-lg border border-amber-100">
+                    Anda masuk sebagai <span className="font-bold">{user.email}</span>, tetapi akun ini bukan Admin.
                   </div>
                 )}
                 <button
@@ -396,6 +418,14 @@ const AppContent: React.FC = () => {
                 >
                   <ShieldAlert size={18} /> Masuk dengan Google
                 </button>
+                {user && (
+                  <button
+                    onClick={handleLogout}
+                    className="w-full bg-slate-100 text-slate-600 py-3.5 rounded-xl font-semibold hover:bg-slate-200 transition duration-200 flex items-center justify-center gap-2"
+                  >
+                    <LogOut size={18} /> Keluar
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1172,6 +1202,25 @@ const MasterView: React.FC<{
   );
 };
 
+const KATEGORI_OPTIONS = [
+  "Kedisiplinan",
+  "Etika",
+  "Akademik",
+  "Bullying",
+  "Perkelahian",
+  "Merokok",
+  "Narkoba",
+];
+
+const TINDAK_LANJUT_OPTIONS = [
+  "Konseling Individu",
+  "Konseling Kelompok",
+  "Panggilan Orang Tua",
+  "Mediasi",
+  "Home Visit",
+  "Skorsing",
+];
+
 const InputView: React.FC<{
   dbState: DatabaseState;
   editingCase: CaseRecord | null;
@@ -1206,8 +1255,26 @@ const InputView: React.FC<{
     lampiran: [],
   });
 
+  const [isKategoriLainnya, setIsKategoriLainnya] = useState(false);
+  const [isTindakLanjutLainnya, setIsTindakLanjutLainnya] = useState(false);
+
   useEffect(() => {
-    if (editingCase) setFormData(editingCase);
+    if (editingCase) {
+      setFormData(editingCase);
+      if (editingCase.kategori_kasus && !KATEGORI_OPTIONS.includes(editingCase.kategori_kasus)) {
+        setIsKategoriLainnya(true);
+      } else {
+        setIsKategoriLainnya(false);
+      }
+      if (editingCase.tindak_lanjut && !TINDAK_LANJUT_OPTIONS.includes(editingCase.tindak_lanjut)) {
+        setIsTindakLanjutLainnya(true);
+      } else {
+        setIsTindakLanjutLainnya(false);
+      }
+    } else {
+      setIsKategoriLainnya(false);
+      setIsTindakLanjutLainnya(false);
+    }
   }, [editingCase]);
 
   const CLASSES = useMemo(() => {
@@ -1330,22 +1397,19 @@ const InputView: React.FC<{
               <select
                 required
                 className={inputClass}
-                value={formData.kategori_kasus}
-                onChange={(e) =>
-                  setFormData({ ...formData, kategori_kasus: e.target.value })
-                }
+                value={isKategoriLainnya ? "Lainnya" : formData.kategori_kasus}
+                onChange={(e) => {
+                  if (e.target.value === "Lainnya") {
+                    setIsKategoriLainnya(true);
+                    setFormData({ ...formData, kategori_kasus: "" });
+                  } else {
+                    setIsKategoriLainnya(false);
+                    setFormData({ ...formData, kategori_kasus: e.target.value });
+                  }
+                }}
               >
                 <option value="">-- Pilih Jenis Kasus --</option>
-                {[
-                  "Kedisiplinan",
-                  "Etika",
-                  "Akademik",
-                  "Bullying",
-                  "Perkelahian",
-                  "Merokok",
-                  "Narkoba",
-                  "Lainnya",
-                ].map((k) => (
+                {[...KATEGORI_OPTIONS, "Lainnya"].map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
@@ -1355,6 +1419,18 @@ const InputView: React.FC<{
                 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
+            {isKategoriLainnya && (
+              <input
+                type="text"
+                required
+                placeholder="Masukkan kategori kasus lainnya"
+                className={`${inputClass} mt-2`}
+                value={formData.kategori_kasus}
+                onChange={(e) =>
+                  setFormData({ ...formData, kategori_kasus: e.target.value })
+                }
+              />
+            )}
           </div>
 
           {/* Row 2 */}
@@ -1561,20 +1637,18 @@ const InputView: React.FC<{
             <div className="relative">
               <select
                 className={inputClass}
-                value={formData.tindak_lanjut}
-                onChange={(e) =>
-                  setFormData({ ...formData, tindak_lanjut: e.target.value })
-                }
+                value={isTindakLanjutLainnya ? "Lainnya" : formData.tindak_lanjut}
+                onChange={(e) => {
+                  if (e.target.value === "Lainnya") {
+                    setIsTindakLanjutLainnya(true);
+                    setFormData({ ...formData, tindak_lanjut: "" });
+                  } else {
+                    setIsTindakLanjutLainnya(false);
+                    setFormData({ ...formData, tindak_lanjut: e.target.value });
+                  }
+                }}
               >
-                {[
-                  "Konseling Individu",
-                  "Konseling Kelompok",
-                  "Panggilan Orang Tua",
-                  "Mediasi",
-                  "Home Visit",
-                  "Skorsing",
-                  "Lainnya",
-                ].map((k) => (
+                {[...TINDAK_LANJUT_OPTIONS, "Lainnya"].map((k) => (
                   <option key={k} value={k}>
                     {k}
                   </option>
@@ -1584,6 +1658,18 @@ const InputView: React.FC<{
                 className="absolute right-4 md:right-5 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none w-4 h-4 md:w-5 md:h-5"
               />
             </div>
+            {isTindakLanjutLainnya && (
+              <input
+                type="text"
+                required
+                placeholder="Masukkan tindak lanjut lainnya"
+                className={`${inputClass} mt-2`}
+                value={formData.tindak_lanjut}
+                onChange={(e) =>
+                  setFormData({ ...formData, tindak_lanjut: e.target.value })
+                }
+              />
+            )}
           </div>
           <div className="space-y-2 md:space-y-4">
             <label className="text-[10px] md:text-xs font-semibold uppercase text-slate-500 tracking-wider block ml-1">
@@ -1681,7 +1767,11 @@ const ReportView: React.FC<{
         (k) =>
           (k.nama_siswa.toLowerCase().includes(search.toLowerCase()) ||
             k.kelas.toLowerCase().includes(search.toLowerCase())) &&
-          (filterKategori ? k.kategori_kasus === filterKategori : true) &&
+          (filterKategori
+            ? filterKategori === "Lainnya"
+              ? !KATEGORI_OPTIONS.includes(k.kategori_kasus)
+              : k.kategori_kasus === filterKategori
+            : true) &&
           (filterStatus ? k.status === filterStatus : true),
       )
       .sort((a, b) => b.created_at - a.created_at);
@@ -1744,16 +1834,7 @@ const ReportView: React.FC<{
           onChange={(e) => setFilterKategori(e.target.value)}
         >
           <option value="">Semua Kategori</option>
-          {[
-            "Kedisiplinan",
-            "Etika",
-            "Akademik",
-            "Bullying",
-            "Perkelahian",
-            "Merokok",
-            "Narkoba",
-            "Lainnya",
-          ].map((k) => (
+          {[...KATEGORI_OPTIONS, "Lainnya"].map((k) => (
             <option key={k} value={k}>
               {k}
             </option>
