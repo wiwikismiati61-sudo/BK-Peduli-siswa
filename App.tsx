@@ -66,6 +66,7 @@ import {
   DatabaseState,
   Attachment,
 } from "./types";
+import { exportToExcel, exportPivotToExcel } from "./excelExport";
 
 class ErrorBoundary extends Component<any, any> {
   state = { hasError: false, error: null };
@@ -1777,20 +1778,9 @@ const ReportView: React.FC<{
       .sort((a, b) => b.created_at - a.created_at);
   }, [dbState.kasus, search, filterKategori, filterStatus]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filtered.length === 0) return alert("Tidak ada data untuk diekspor");
-    const ws = XLSX.utils.json_to_sheet(
-      filtered.map(({ lampiran, ...rest }) => ({
-        ...rest,
-        jum_file: lampiran.length,
-      })),
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Rekap_Kasus");
-    XLSX.writeFile(
-      wb,
-      `Laporan_BK_Siswa_${new Date().toISOString().split("T")[0]}.xlsx`,
-    );
+    await exportToExcel(filtered);
   };
 
   return (
@@ -1822,7 +1812,7 @@ const ReportView: React.FC<{
             onClick={handleExport}
             className="bg-emerald-600 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-sm shadow-emerald-100 w-full sm:w-auto"
           >
-            <Download size={16} className="w-4 h-4" /> Excel
+            <Download size={16} className="w-4 h-4" /> Download Rekap
           </button>
         </div>
       </div>
@@ -2002,21 +1992,9 @@ const RekapView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
 
   const students = useMemo(() => Object.keys(pivotData).sort(), [pivotData]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (students.length === 0) return alert("Tidak ada data untuk diekspor");
-    const exportData = students.map((s) => {
-      const row: any = { "Nama Siswa": s };
-      categories.forEach((c) => {
-        row[c] = pivotData[s][c] || 0;
-      });
-      row["Total Panggilan"] = (Object.values(pivotData[s]) as number[]).reduce((a: number, b: number) => a + b, 0);
-      return row;
-    });
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Rekap_Penanganan");
-    XLSX.writeFile(wb, `Rekap_Penanganan_Siswa_${new Date().toISOString().split("T")[0]}.xlsx`);
+    await exportPivotToExcel(students, pivotData, categories);
   };
 
   return (
@@ -2034,7 +2012,7 @@ const RekapView: React.FC<{ dbState: DatabaseState }> = ({ dbState }) => {
           onClick={handleExport}
           className="bg-emerald-600 text-white px-4 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-sm shadow-emerald-100 w-full lg:w-auto"
         >
-          <Download size={16} className="w-4 h-4" /> Excel
+          <Download size={16} className="w-4 h-4" /> Download Rekap
         </button>
       </div>
 
